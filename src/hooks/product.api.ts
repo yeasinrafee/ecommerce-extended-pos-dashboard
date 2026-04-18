@@ -125,7 +125,6 @@ export const usePaginatedProducts = (page: number, limit = 20, searchTerm?: stri
 	return useQuery<PagedResult<Product>>({
 		queryKey: productKeys.paginated(page, limit, searchTerm ?? null),
 		queryFn: () => fetchPaginatedProducts(page, limit, searchTerm ?? null),
-		enabled: Boolean(searchTerm?.trim()),
 		placeholderData: keepPreviousData
 	});
 };
