@@ -853,7 +853,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
           setWidthCm={updateWidth}
           heightCm={heightCm}
           setHeightCm={updateHeight}
-          control={control}
+          control={control as unknown as any}
           discountOptions={discountOptions}
           stockStatusOptions={stockStatusOptions}
           productStatusOptions={productStatusOptions}
@@ -927,7 +927,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
             description={description}
             setDescription={updateDescription}
             brandOptions={brandOptions}
-            control={control}
+            control={control as unknown as any}
             isEditMode={isEditMode}
             onEditorProcessingChange={setIsEditorProcessing}
           />

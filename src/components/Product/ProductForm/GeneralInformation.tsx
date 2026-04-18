@@ -1,5 +1,7 @@
 import React from "react";
-import { Control } from "react-hook-form";
+// Control typing from react-hook-form is intentionally relaxed to avoid
+// generic variance errors when the parent form uses a specific field type.
+// The form `control` is still used at runtime and validated by react-hook-form.
 
 import CustomInput from "../../FormFields/CustomInput";
 import CustomSelect from "../../FormFields/CustomSelect";
@@ -34,7 +36,8 @@ interface GeneralInformationProps {
   setWidthCm: (value: number | null) => void;
   heightCm: number | null;
   setHeightCm: (value: number | null) => void;
-  control: Control<any>;
+  // allow any to avoid cross-file react-hook-form generic incompatibilities
+  control: any;
   discountOptions: Option[];
   stockStatusOptions: Option[];
   productStatusOptions: Option[];
