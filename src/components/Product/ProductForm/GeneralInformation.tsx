@@ -13,6 +13,8 @@ interface Option {
 interface GeneralInformationProps {
   basePrice: number | null;
   setBasePrice: (value: number | null) => void;
+  posPrice: number | null;
+  setPosPrice: (value: number | null) => void;
   selectedDiscountType: string;
   discountValue: number | null;
   setDiscountValue: (value: number | null) => void;
@@ -41,6 +43,8 @@ interface GeneralInformationProps {
 const GeneralInformation: React.FC<GeneralInformationProps> = ({
   basePrice,
   setBasePrice,
+  posPrice,
+  setPosPrice,
   selectedDiscountType,
   discountValue,
   setDiscountValue,
@@ -99,6 +103,17 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
             className="mt-1"
           />
         </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <CustomInput
+          label="POS Price"
+          type="number"
+          value={posPrice === null ? "" : posPrice}
+          onValueChange={(value) => setPosPrice(value as number | null)}
+          placeholder="Optional"
+          min={1}
+        />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">

@@ -62,6 +62,13 @@ const nullablePositiveNumberSchema = z.preprocess((value) => {
   return Number(value);
 }, z.number().positive().nullable());
 
+const nullablePositivePriceSchema = z.preprocess((value) => {
+  if (value === "" || value === null || value === undefined) {
+    return null;
+  }
+  return Number(value);
+}, z.number().positive().nullable());
+
 const nullableStringSchema = z.preprocess((value) => {
   if (value === "" || value === null || value === undefined) {
     return null;
@@ -82,6 +89,7 @@ const createProductSchema = z
     shortDescription: nullableStringSchema,
     description: z.string().trim().min(1, "Description is required"),
     basePrice: z.preprocess(toNumber, z.number().positive()),
+    posPrice: nullablePositivePriceSchema,
     discountType: z.enum(["NONE", "FLAT_DISCOUNT", "PERCENTAGE_DISCOUNT"]),
     discountValue: nullableNumberSchema,
     discountStartDate: nullableDateStringSchema,
@@ -196,6 +204,7 @@ const defaultFormValues: z.infer<typeof createProductSchema> = {
   shortDescription: null,
   description: "",
   basePrice: 0,
+  posPrice: null,
   discountType: "NONE",
   discountValue: null,
   discountStartDate: null,
@@ -274,6 +283,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
   const [shortDescription, setShortDescription] = React.useState("");
   const [description, setDescription] = React.useState("");
   const [basePrice, setBasePrice] = React.useState<number | null>(null);
+  const [posPrice, setPosPrice] = React.useState<number | null>(null);
   const [discountValue, setDiscountValue] = React.useState<number | null>(null);
   const [discountStart, setDiscountStart] = React.useState<Date | null>(null);
   const [discountEnd, setDiscountEnd] = React.useState<Date | null>(null);
@@ -333,6 +343,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
     setShortDescription(p.shortDescription ?? "");
     setDescription(p.description ?? "");
     setBasePrice(p.Baseprice ?? null);
+    setPosPrice(p.posPrice ?? null);
     setDiscountValue(p.discountValue ?? null);
     setDiscountStart(p.discountStartDate ? new Date(p.discountStartDate) : null);
     setDiscountEnd(p.discountEndDate ? new Date(p.discountEndDate) : null);
@@ -355,6 +366,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
       shortDescription: p.shortDescription ?? null,
       description: p.description ?? "",
       basePrice: p.Baseprice ?? 0,
+      posPrice: p.posPrice ?? null,
       discountType: p.discountType ?? "NONE",
       discountValue: p.discountValue ?? null,
       discountStartDate: p.discountStartDate ?? null,
@@ -449,6 +461,14 @@ export default function CreateProductForm({ productId }: { productId?: string })
   const updateBasePrice = (value: number | null) => {
     setBasePrice(value);
     setValue("basePrice", value ?? 0, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+  };
+
+  const updatePosPrice = (value: number | null) => {
+    setPosPrice(value);
+    setValue("posPrice", value, {
       shouldValidate: true,
       shouldDirty: true,
     });
@@ -679,6 +699,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
     payload.append("shortDescription", values.shortDescription ?? "");
     payload.append("description", values.description);
     payload.append("basePrice", String(values.basePrice));
+    if (values.posPrice != null) payload.append("posPrice", String(values.posPrice));
     payload.append("discountType", values.discountType);
     payload.append("discountValue", values.discountValue == null ? "" : String(values.discountValue));
     payload.append("discountStartDate", values.discountStartDate ?? "");
@@ -715,6 +736,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
     payload.append("shortDescription", values.shortDescription ?? "");
     payload.append("description", values.description);
     payload.append("basePrice", String(values.basePrice));
+    if (values.posPrice != null) payload.append("posPrice", String(values.posPrice));
     payload.append("discountType", values.discountType);
     payload.append("discountValue", values.discountValue == null ? "" : String(values.discountValue));
     payload.append("discountStartDate", values.discountStartDate ?? "");
@@ -760,6 +782,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
     setShortDescription("");
     setDescription("");
     setBasePrice(null);
+    setPosPrice(null);
     setDiscountValue(null);
     setDiscountStart(null);
     setDiscountEnd(null);
@@ -809,6 +832,8 @@ export default function CreateProductForm({ productId }: { productId?: string })
         <GeneralInformation
           basePrice={basePrice}
           setBasePrice={updateBasePrice}
+          posPrice={posPrice}
+          setPosPrice={updatePosPrice}
           selectedDiscountType={selectedDiscountType}
           discountValue={discountValue}
           setDiscountValue={updateDiscountValue}

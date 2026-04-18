@@ -17,6 +17,7 @@ export interface Product {
 	status?: string;
 	stockStatus?: string;
 	basePrice?: number;
+	posPrice?: number | null;
 	finalPrice?: number;
 	discountType?: string | null;
 	discountValue?: number | null;
