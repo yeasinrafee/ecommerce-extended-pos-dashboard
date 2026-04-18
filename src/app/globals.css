@@ -1,0 +1,153 @@
+@import "tailwindcss";
+
+/* Single light theme (dark mode removed). All colors are centralized below in :root.
+  Change these variables to alter site-wide colors quickly. */
+
+@theme inline {
+  /* --- CUSTOM BRAND COLORS --- */
+  --color-brand-primary: var(--brand-primary);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-info: var(--brand-info);
+  --color-brand-destructive: var(--brand-destructive);
+
+  /* --- SYSTEM MAPPINGS --- */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  /* --- RADII --- */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+}
+
+:root {
+  /* YOUR BRAND COLORS (HEX) */
+  --brand-primary: #088178;
+  --brand-secondary: #04525c;
+  --brand-info: #ffbb06;
+  --brand-destructive: #ca0334;
+
+  /* BASE SYSTEM RADIUS */
+  --radius: 0.625rem;
+
+  /* SHADCN / UI VARIABLES MAPPED TO BRAND */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  
+  /* Primary UI elements will now use your Brand Primary */
+  --primary: var(--brand-primary);
+  --primary-foreground: oklch(0.985 0 0);
+  
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  
+  /* Destructive UI elements will use your Brand Destructive */
+  --destructive: var(--brand-destructive);
+  --destructive-foreground: oklch(0.985 0 0);
+  
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  
+  /* CHARTS */
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+
+  /* SIDEBAR */
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: var(--brand-primary);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+/* NOTE: dark mode intentionally removed. If dark mode is reintroduced later,
+   re-add a `.dark` block or use a CSS media query to override variables. */
+
+/* Extra, explicit semantic variables for UI components and form fields. */
+:root {
+  /* Form controls */
+  --input-bg: var(--input);
+  --input-text: var(--foreground);
+  --input-border: var(--border);
+  --input-placeholder: color-mix(in srgb, var(--foreground) 40%, transparent);
+  --input-radius: var(--radius-sm);
+
+  /* Card / surfaces */
+  --surface-bg: var(--card);
+  --surface-text: var(--card-foreground);
+
+  /* Sidebar explicit mapping */
+  --sidebar-bg: var(--sidebar);
+  --sidebar-text: var(--sidebar-foreground);
+  --sidebar-accent: var(--sidebar-accent);
+  --sidebar-border-color: var(--sidebar-border);
+
+  /* Primary / accent */
+  --primary-color: var(--primary);
+  --primary-on: var(--primary-foreground);
+  --secondary-color: var(--secondary);
+  --accent-color: var(--accent);
+
+  /* Utility */
+  --muted-color: var(--muted);
+  --muted-on: var(--muted-foreground);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
