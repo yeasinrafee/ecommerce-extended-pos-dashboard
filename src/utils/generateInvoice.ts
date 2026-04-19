@@ -137,6 +137,10 @@ export interface OrderData {
   address: Address;
   orderItems: OrderItem[];
   zonePolicy: ZonePolicy;
+  paymentStatus?: "PAID" | "PENDING" | "DUE";
+  totalPaid?: number;
+  dueAmount?: number;
+  payments?: { paymentMethod: string; amount: number }[];
 }
 export interface InvoiceOptions {
   download?: boolean;
@@ -408,7 +412,7 @@ export async function generateInvoice(
       item.product?.name ?? "—",
       item.product?.sku ?? "—",
       item.quantity,
-      fmt(item.Baseprice),
+      fmt(item.finalPrice),
       item.discountType !== "NONE" ? `${item.discountValue}` : "—",
       attrs,
       fmt(item.finalPrice * item.quantity),
@@ -472,10 +476,30 @@ export async function generateInvoice(
     ["Subtotal", fmt(order.baseAmount)],
     ["Shipping", fmt(order.finalShippingCharge)],
     [
-      "Discount",
+      "Order Discount",
       order.discountAmount > 0 ? `-${fmt(order.discountAmount)}` : "—",
     ],
   ];
+
+  // Defensive Payment Calculations
+  const paymentsPool = order.payments || [];
+  const calculatedPaid = paymentsPool.reduce(
+    (sum, p) => sum + (p.amount || 0),
+    0,
+  );
+  const displayPaid =
+    order.totalPaid !== undefined ? order.totalPaid : calculatedPaid;
+  const displayDue =
+    order.dueAmount !== undefined
+      ? order.dueAmount
+      : order.finalAmount - displayPaid;
+
+  if (displayPaid > 0) {
+    sumRows.push(["Paid Amount", fmt(displayPaid)]);
+  }
+  if (displayDue > 0.01) {
+    sumRows.push(["Due Balance", fmt(displayDue)]);
+  }
   doc.setFillColor(...C.light);
   doc.roundedRect(sX, y, sW, rH * sumRows.length + rH + 4, 2, 2, "F");
   let sy = y + 7;
@@ -497,7 +521,18 @@ export async function generateInvoice(
   doc.text("TOTAL", sX + 5, sy + 4.5);
   doc.text(fmt(order.finalAmount), sX + sW - 5, sy + 4.5, { align: "right" });
 
-  y = sy + rH + 10;
+  if (order.payments && order.payments.length > 0) {
+    const methods = Array.from(
+      new Set(paymentsPool.map((p) => p.paymentMethod)),
+    ).filter(Boolean);
+    const methodStr = methods.length > 0 ? methods.join(", ") : "CASH";
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...C.muted);
+    doc.text(`Payment Method: ${methodStr}`, sX + 5, sy + 11.5);
+  }
+
+  y = sy + rH + 15;
 
   // ── DELIVERY STRIP ──────────────────────────────────────────────────────────
   doc.setFillColor(...C.light);

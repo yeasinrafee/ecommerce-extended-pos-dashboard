@@ -1,15 +1,16 @@
-import { 
-  LuLayoutDashboard, 
-  LuBox, 
-  LuShoppingCart, 
-  LuUsers, 
-  LuLayers, 
-  LuTicketPercent, 
-  LuGlobe, 
+import {
+  LuLayoutDashboard,
+  LuBox,
+  LuShoppingCart,
+  LuUsers,
+  LuLayers,
+  LuTicketPercent,
+  LuGlobe,
   LuTruck,
-  LuImage, 
+  LuImage,
   LuSettings,
-  LuList
+  LuList,
+  LuLandmark,
 } from "react-icons/lu";
 
 export interface RouteItem {
@@ -36,13 +37,13 @@ export const routes: RouteItem[] = [
     label: "Products",
     href: "/dashboard/products",
     subItems: [
-      { 
-        label: "Create Product", 
-        href: "/dashboard/product/create", 
+      {
+        label: "Create Product",
+        href: "/dashboard/product/create",
       },
-      { 
-        label: "Manage Products", 
-        href: "/dashboard/product/manage", 
+      {
+        label: "Manage Products",
+        href: "/dashboard/product/manage",
       },
       {
         label: "Product Categories",
@@ -72,7 +73,22 @@ export const routes: RouteItem[] = [
     label: "Manage Orders",
     href: "/dashboard/orders",
   },
-   {
+  {
+    icon: LuShoppingCart,
+    label: "POS Order",
+    href: "/dashboard/pos-order",
+    subItems: [
+      {
+        label: "Create POS Order",
+        href: "/dashboard/pos-order/create",
+      },
+      {
+        label: "Manage POS Order",
+        href: "/dashboard/pos-order/manage",
+      },
+    ],
+  },
+  {
     icon: LuLayers,
     label: "Inventory",
     href: "",
@@ -94,6 +110,11 @@ export const routes: RouteItem[] = [
         href: "/dashboard/stores",
       },
     ],
+  },
+  {
+    icon: LuLandmark,
+    label: "Bank Management",
+    href: "/dashboard/bank",
   },
   {
     icon: LuUsers,
@@ -140,7 +161,10 @@ export const routes: RouteItem[] = [
     subItems: [
       { label: "Create Blog", href: "/dashboard/blog/create" },
       { label: "Manage Blogs", href: "/dashboard/blog/manage" },
-      { label: "Blog Categories", href: "/dashboard/categories/blog-categories/manage" },
+      {
+        label: "Blog Categories",
+        href: "/dashboard/categories/blog-categories/manage",
+      },
       { label: "Blog Tags", href: "/dashboard/tags/blog-tags/manage" },
     ],
   },
@@ -150,13 +174,13 @@ export const routes: RouteItem[] = [
     label: "Promo & Offers",
     href: "/dashboard/promos",
     subItems: [
-      { 
-        label: "Create Promo", 
-        href: "/dashboard/promo/create", 
+      {
+        label: "Create Promo",
+        href: "/dashboard/promo/create",
       },
-      { 
-        label: "Manage Promos", 
-        href: "/dashboard/promo/manage", 
+      {
+        label: "Manage Promos",
+        href: "/dashboard/promo/manage",
       },
       {
         label: "Create Offer",
@@ -174,7 +198,10 @@ export const routes: RouteItem[] = [
     label: "Web Management",
     href: "/dashboard/web",
     subItems: [
-      { label: "Company Information", href: "/dashboard/web/company-information" },
+      {
+        label: "Company Information",
+        href: "/dashboard/web/company-information",
+      },
       { label: "Company Policy", href: "/dashboard/web/company-policy" },
       { label: "Manage Sliders", href: "/dashboard/web/slider" },
       { label: "Manage FAQs", href: "/dashboard/web/faq" },
