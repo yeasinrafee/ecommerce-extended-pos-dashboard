@@ -81,7 +81,7 @@ const CustomInput = ({
   };
 
   return (
-    <div className={cn("space-y-2", containerClassName)}>
+    <div className={cn("space-y-1.5", containerClassName)}>
       {label ? (
         <Label htmlFor={inputId} className={labelClassName}>
           {label}
@@ -97,7 +97,7 @@ const CustomInput = ({
         id={inputId}
         type={resolvedType}
         step={resolvedStep}
-        className={className}
+        className={cn("h-10", className)}
         aria-describedby={describedBy || undefined}
         aria-invalid={hasError || undefined}
         onChange={handleChange}

@@ -276,12 +276,12 @@ export default function CreateStock() {
 
   return (
     <div className="mx-auto w-full max-w-325 p-4">
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4 flex items-start justify-between gap-3">
         <h2 className="text-lg font-medium">{isEdit ? "Update Stock" : "Create Stock"}</h2>
         <div className="flex items-center gap-2">
-          <CustomButton variant="outline" onClick={() => router.push("/dashboard/stocks/manage")}>Back</CustomButton>
+          {/* <CustomButton variant="outline" onClick={() => router.push("/dashboard/stocks/manage")}>Back</CustomButton> */}
           <CustomButton loading={loading} type="button" onClick={handleSubmit(submit)}>
-            {isEdit ? "Update Stock" : "Submit"}
+            {isEdit ? "Update Stock" : "Save Stock"}
           </CustomButton>
         </div>
       </div>
@@ -312,6 +312,7 @@ export default function CreateStock() {
 
           <CustomInput
             label="Invoice No"
+            className="bg-white"
             requiredMark
             readOnly
             value={watchedInvoiceNumber ?? ""}
@@ -333,7 +334,7 @@ export default function CreateStock() {
                 <DateTimeInput
                   value={field.value ?? ""}
                   onChange={field.onChange}
-                  inputClassName="h-10"
+                  inputClassName="h-10 bg-white"
                 />
               )}
             />
@@ -346,19 +347,31 @@ export default function CreateStock() {
         <CustomTextArea
           label="Note"
           placeholder="Write invoice note"
+          className="bg-white"
           rows={3}
           {...register("note")}
           error={errors.note?.message}
         />
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="relative">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3 items-end">
+          <div className="relative md:col-span-2">
             <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
             <Input
               value={nameSearchInput}
               onChange={(event) => setNameSearchInput(event.target.value)}
               placeholder="Search Product Name, ID"
-              className="h-10 pl-10"
+              className="h-10 pl-10 bg-white"
+            />
+          </div>
+          <div>
+            <CustomSelect
+              name="orderStatus"
+              control={control}
+              label="Order Status"
+              requiredMark
+              options={orderStatusOptions}
+              fieldToValue={(value: StockOrderStatus) => value}
+              valueToField={(value: string) => value}
             />
           </div>
         </div>
@@ -465,19 +478,7 @@ export default function CreateStock() {
 
         {errors.products?.message ? <p className="text-sm text-destructive">{errors.products.message}</p> : null}
 
-        <div className="grid grid-cols-1 md:grid-cols-3">
-          <div className="md:col-start-3">
-            <CustomSelect
-              name="orderStatus"
-              control={control}
-              label="Order Status"
-              requiredMark
-              options={orderStatusOptions}
-              fieldToValue={(value: StockOrderStatus) => value}
-              valueToField={(value: string) => value}
-            />
-          </div>
-        </div>
+        
       </form>
     </div>
   );

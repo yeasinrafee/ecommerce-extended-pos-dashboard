@@ -77,7 +77,7 @@ export default function CustomSelect<
         return (
           <div data-invalid={fieldState.invalid} className={cn(fieldClassName)}>
             {label && (
-              <Label htmlFor={`select-${String(name)}`} className={cn("mb-2", labelClassName)}>
+              <Label htmlFor={`select-${String(name)}`} className={cn("mb-1.5", labelClassName)}>
                 {label}
                 {requiredMark ? (
                   <span className="ml-1 text-destructive" aria-hidden="true">*</span>
@@ -93,7 +93,7 @@ export default function CustomSelect<
               value={selectValue}
               disabled={disabled}
             >
-              <SelectTrigger id={`select-${String(name)}`} className={cn("w-full bg-white", triggerClassName)}>
+              <SelectTrigger id={`select-${String(name)}`} className={cn("h-10! w-full bg-white", triggerClassName)}>
                 <SelectValue placeholder={placeholder} />
               </SelectTrigger>
               <SelectContent position="popper" className={cn(contentClassName)}>
