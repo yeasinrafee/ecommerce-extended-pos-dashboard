@@ -2,10 +2,11 @@
 
 import React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Plus, Search, Trash2 } from "lucide-react";
+import { Search, Trash2 } from "lucide-react";
 import CustomButton from "@/components/Common/CustomButton";
 import CustomInput from "@/components/FormFields/CustomInput";
 import CustomSelect from "@/components/FormFields/CustomSelect";
@@ -177,6 +178,7 @@ export default function CreateStock() {
         id: item.product.id,
         name: item.product.name,
         sku: item.product.sku,
+                image: item.product.image,
         stock: item.product.stock
       };
     });
@@ -320,28 +322,22 @@ export default function CreateStock() {
             helperText={generatingInvoice ? "Generating invoice number..." : undefined}
           />
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">
-              Create Date
-              <span className="ml-1 text-destructive" aria-hidden="true">
-                *
-              </span>
-            </label>
-            <Controller
-              name="createDate"
-              control={control}
-              render={({ field }) => (
-                <DateTimeInput
-                  value={field.value ?? ""}
-                  onChange={field.onChange}
-                  inputClassName="h-10 bg-white"
-                />
-              )}
-            />
-            {errors.createDate?.message ? (
-              <p className="text-xs text-destructive">{errors.createDate.message}</p>
-            ) : null}
-          </div>
+          <Controller
+            name="createDate"
+            control={control}
+            render={({ field }) => (
+              <DateTimeInput
+                value={field.value ?? ""}
+                onChange={field.onChange}
+                inputClassName="h-10 bg-white"
+                containerClassName="space-y-2"
+                label={"Create Date *"}
+              />
+            )}
+          />
+          {errors.createDate?.message ? (
+            <p className="text-xs text-destructive">{errors.createDate.message}</p>
+          ) : null}
         </div>
 
         <CustomTextArea
@@ -383,17 +379,24 @@ export default function CreateStock() {
                 <p className="px-3 py-2 text-sm text-muted-foreground">Searching products...</p>
               ) : availableSearchProducts.length > 0 ? (
                 availableSearchProducts.map((product) => (
-                  <div key={product.id} className="flex items-center justify-between border-b px-3 py-2 last:border-b-0">
-                    <div>
-                      <p className="text-sm font-medium">{product.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {product.sku ? `SKU: ${product.sku}` : "No SKU"} | Stock: {product.stock}
+                  <button
+                    key={product.id}
+                    type="button"
+                    onClick={() => addProduct(product)}
+                    className="flex w-full items-center gap-3 border-b px-3 py-2 text-left transition hover:bg-slate-50 last:border-b-0"
+                  >
+                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-md border bg-slate-100">
+                      {product.image ? (
+                        <Image src={product.image} alt={product.name} width={48} height={48} className="h-12 w-12 object-cover" />
+                      ) : null}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{product.name}</p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {product.sku ? `SKU: ${product.sku}` : "No SKU"}
                       </p>
                     </div>
-                    <Button type="button" variant="ghost" size="icon" onClick={() => addProduct(product)}>
-                      <Plus className="h-4 w-4 text-emerald-600" />
-                    </Button>
-                  </div>
+                  </button>
                 ))
               ) : (
                 <p className="px-3 py-2 text-sm text-muted-foreground">No products found</p>
@@ -407,6 +410,7 @@ export default function CreateStock() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-14">SL</TableHead>
+                <TableHead className="w-16 text-center">Image</TableHead>
                 <TableHead>Product Name</TableHead>
                 <TableHead className="text-center">Stock</TableHead>
                 <TableHead className="w-36 text-center">Quantity</TableHead>
@@ -426,6 +430,19 @@ export default function CreateStock() {
                 return (
                   <TableRow key={field.id}>
                     <TableCell>{index + 1}</TableCell>
+                    <TableCell className="text-center">
+                      <div className="mx-auto h-12 w-12 overflow-hidden rounded-md border bg-slate-100">
+                        {product?.image ? (
+                          <Image
+                            src={product.image}
+                            alt={product.name ?? "Product image"}
+                            width={48}
+                            height={48}
+                            className="h-12 w-12 object-cover"
+                          />
+                        ) : null}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <div className="font-medium">{product?.name ?? "Unknown Product"}</div>
                       <div className="text-xs text-muted-foreground">{product?.sku ? `SKU: ${product.sku}` : "No SKU"}</div>
@@ -466,7 +483,7 @@ export default function CreateStock() {
               })}
 
               <TableRow>
-                <TableCell colSpan={3} />
+                <TableCell colSpan={4} />
                 <TableCell className="text-center font-semibold">Total QTY: {totals.totalQty}</TableCell>
                 <TableCell className="text-center font-semibold">Grand Total</TableCell>
                 <TableCell className="text-center font-semibold">{formatMoney(totals.grandTotal)}</TableCell>

@@ -20,6 +20,7 @@ export interface StockProduct {
     id: string;
     name: string;
     sku?: string | null;
+    image?: string | null;
     stock: number;
   };
 }
@@ -85,6 +86,7 @@ export interface ProductSearchResult {
   id: string;
   name: string;
   sku?: string | null;
+  image?: string | null;
   stock: number;
 }
 
