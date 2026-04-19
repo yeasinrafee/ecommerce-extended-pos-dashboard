@@ -19,6 +19,7 @@ export interface StockTransferProduct {
 	product?: {
 		id: string;
 		name: string;
+		image?: string | null;
 		sku?: string | null;
 		stock: number;
 	};
@@ -76,6 +77,7 @@ export interface StockTransferProductSearchResult {
 	name: string;
 	sku?: string | null;
 	stock: number;
+	image?: string | null;
 	availableQuantity: number;
 	purchasePrice: number;
 }
