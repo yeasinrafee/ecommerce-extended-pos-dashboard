@@ -18,8 +18,9 @@ import {
 
 const statusOptions = [
 	{ label: "Pending", value: "PENDING" },
-	{ label: "In Transit", value: "IN_TRANSIT" },
-	{ label: "Completed", value: "COMPLETED" },
+	{ label: "Confirmed", value: "CONFIRMED" },
+	{ label: "Shipped", value: "SHIPPED" },
+	{ label: "Delivered", value: "DELIVERED" },
 	{ label: "Cancelled", value: "CANCELLED" }
 ];
 
