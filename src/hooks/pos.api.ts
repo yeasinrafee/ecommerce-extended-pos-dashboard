@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api";
 import { PosRoutes } from "@/routes/pos.route";
+import { ProductRoutes } from "@/routes/product.route";
 import type { ApiResponse } from "@/types/auth";
 import { toast } from "react-hot-toast";
 
@@ -189,6 +190,14 @@ export const posKeys = {
 };
 
 /* ──────────────────────────── hooks ──────────────────────────── */
+
+export const fetchProductByBarcode = async (barcodeId: string): Promise<PosProduct> => {
+  const cleanId = String(barcodeId).replace(/\s/g, "").trim();
+  const response = await apiClient.get<ApiResponse<PosProduct>>(
+    ProductRoutes.getByBarcode(cleanId),
+  );
+  return ensurePayload(response.data, "Product not found for this barcode");
+};
 
 export const usePosProducts = (searchTerm?: string, storeId?: string) => {
   return useQuery<PosProduct[]>({

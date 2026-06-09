@@ -4,6 +4,7 @@ export const ProductRoutes = {
   getAllPaginated: `${productBase}/get-all`,
   getAll: `${productBase}/all`,
   getById: (id: string) => `${productBase}/${id}`,
+  getByBarcode: (barcodeId: string) => `${productBase}/barcode/${barcodeId}`,
   create: `${productBase}/create`,
   update: (id: string) => `${productBase}/${id}`,
   patch: (id: string) => `${productBase}/${id}/fields`,

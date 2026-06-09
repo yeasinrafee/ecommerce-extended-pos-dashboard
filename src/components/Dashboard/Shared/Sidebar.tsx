@@ -53,8 +53,13 @@ const Sidebar = ({
   setCollapsed,
 }: SidebarProps) => {
   const [internalCollapsed, setInternalCollapsed] = useState(collapsed);
+  const [mounted, setMounted] = useState(false);
   const isMobile = useMediaQuery("(max-width: 768px)");
   const pathname = usePathname();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const storedUser = useAuthStore((s) => s.user);
   const defaultUser = {
@@ -68,7 +73,7 @@ const Sidebar = ({
   const visibleRoutes = routes.filter((route) => {
     // only show Manage Admin route for SUPER_ADMIN users
     if (route.href === "/dashboard/admin") {
-      return currentUser?.role === "SUPER_ADMIN";
+      return mounted && currentUser?.role === "SUPER_ADMIN";
     }
     return true;
   });
@@ -177,14 +182,14 @@ const Sidebar = ({
           >
             {isCollapsed ? (
               <Avatar>
-                <AvatarImage src={currentUser.image ?? undefined} alt={currentUser.name} />
-                <AvatarFallback>{(currentUser as any).fallback ?? getInitials(currentUser.name)}</AvatarFallback>
+                <AvatarImage src={mounted ? currentUser.image ?? undefined : undefined} alt={currentUser.name} />
+                <AvatarFallback>{mounted ? (currentUser as any).fallback ?? getInitials(currentUser.name) : ""}</AvatarFallback>
               </Avatar>
             ) : (
               <div className="flex items-center gap-3">
                 <Avatar>
-                  <AvatarImage src={currentUser.image ?? undefined} alt={currentUser.name} />
-                  <AvatarFallback>{(currentUser as any).fallback ?? getInitials(currentUser.name)}</AvatarFallback>
+                  <AvatarImage src={mounted ? currentUser.image ?? undefined : undefined} alt={currentUser.name} />
+                  <AvatarFallback>{mounted ? (currentUser as any).fallback ?? getInitials(currentUser.name) : ""}</AvatarFallback>
                 </Avatar>
                 <div className="w-full overflow-hidden">
                   <p className="text-sm font-medium w-full overflow-hidden truncate">{currentUser.name}</p>
