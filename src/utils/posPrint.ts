@@ -40,7 +40,23 @@ export const printPosReceipt = (bill: PosBillDetail) => {
     (sum, item) => sum + item.lineFinalTotal,
     0,
   );
-  const orderDiscountAmount = lineFinalTotalSum - bill.finalAmount;
+
+  // Discount row — use backend's own fields when available
+  const discountType = bill.orderDiscountType;
+  const discountValue = bill.orderDiscountValue ?? 0;
+  const subtotalAfterDiscount = (() => {
+    if (discountType === "PERCENTAGE_DISCOUNT") {
+      return Math.max(0, lineFinalTotalSum - lineFinalTotalSum * (discountValue / 100));
+    } else if (discountType === "FLAT_DISCOUNT") {
+      return Math.max(0, lineFinalTotalSum - discountValue);
+    }
+    return lineFinalTotalSum;
+  })();
+  const orderDiscountAmount = lineFinalTotalSum - subtotalAfterDiscount;
+
+  // Tax — use backend fields directly
+  const taxPct = bill.taxPercent ?? 0;
+  const taxAmt = bill.taxAmount ?? 0;
 
   // Defensive Payment Calculations
   const paymentsPool = bill.payments || (bill as any).globalPayments || [];
@@ -151,13 +167,23 @@ export const printPosReceipt = (bill: PosBillDetail) => {
             orderDiscountAmount > 0.01
               ? `
           <div class="totals-row">
-            <span>Order Discount:</span>
+            <span>Discount${discountType === "PERCENTAGE_DISCOUNT" ? ` (${discountValue}%)` : " (flat)"}:</span>
             <span>-Tk ${orderDiscountAmount.toFixed(2)}</span>
           </div>
           `
               : ""
           }
-          <div class="totals-row font-bold" style="font-size: 13px; margin-top: 3px;">
+          ${
+            taxAmt > 0.001
+              ? `
+          <div class="totals-row">
+            <span>Tax${taxPct > 0 ? ` (${taxPct}%)` : ""}:</span>
+            <span>+Tk ${taxAmt.toFixed(2)}</span>
+          </div>
+          `
+              : ""
+          }
+          <div class="totals-row font-bold" style="font-size: 13px; margin-top: 3px; border-top: 1px dashed #000; padding-top: 4px;">
             <span>Total:</span>
             <span>Tk ${bill.finalAmount.toFixed(2)}</span>
           </div>

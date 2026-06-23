@@ -114,6 +114,8 @@ export interface PosBillDetail {
   };
   baseAmount: number;
   finalAmount: number;
+  taxAmount?: number | null;
+  taxPercent?: number | null;
   createdAt: string;
   updatedAt: string;
   paymentStatus?: "PAID" | "PENDING" | "DUE";
@@ -140,6 +142,7 @@ export interface CreatePosBillPayload {
   storeId?: string;
   discountType?: "PERCENTAGE_DISCOUNT" | "FLAT_DISCOUNT" | "NONE";
   discountValue?: number;
+  tax?: number;
   products: CreateBillProductLine[];
   payments?: PosPayment[];
 }

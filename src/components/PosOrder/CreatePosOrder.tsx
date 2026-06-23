@@ -473,6 +473,7 @@ const CreatePosOrder: React.FC = () => {
       ...(selectedStoreId ? { storeId: selectedStoreId } : {}),
       discountType: discountType !== "NONE" ? discountType : undefined,
       discountValue: discountType !== "NONE" ? discountValue : undefined,
+      tax: taxPercent > 0 ? taxPercent : undefined,
       products: prods,
       ...(payments && payments.length > 0 ? { payments } : {}),
     };
@@ -491,12 +492,13 @@ const CreatePosOrder: React.FC = () => {
         { orderId: editId, payload },
         {
           onSuccess: (data) => {
-            // Backend processes payments in background, so we enrich the
-            // immediate response with payload data for printing/UI.
             const totalInPayload =
               payload.payments?.reduce((s, p) => s + (p.amount || 0), 0) || 0;
             const enriched = {
               ...data,
+              // Prefer backend's own fields; fall back to the local taxPercent
+              taxPercent: data.taxPercent ?? taxPercent,
+              taxAmount: data.taxAmount ?? 0,
               payments: data.payments?.length
                 ? data.payments
                 : payload.payments,
@@ -521,6 +523,9 @@ const CreatePosOrder: React.FC = () => {
             payload.payments?.reduce((s, p) => s + (p.amount || 0), 0) || 0;
           const enriched = {
             ...data,
+            // Prefer backend's own fields; fall back to the local taxPercent
+            taxPercent: data.taxPercent ?? taxPercent,
+            taxAmount: data.taxAmount ?? 0,
             payments: data.payments?.length ? data.payments : payload.payments,
             totalPaid: data.totalPaid || totalInPayload,
             dueAmount:
@@ -1049,7 +1054,7 @@ const CreatePosOrder: React.FC = () => {
 
                       {/* Name + unit price — flex-1 + min-w-0 ensures truncation, never pushes siblings */}
                       <div className="flex-1 min-w-0 overflow-hidden">
-                        <p className="text-xs font-semibold text-gray-900 truncate leading-tight">
+                        <p className="text-sm font-semibold text-gray-900 truncate leading-tight">
                           {item.productName}
                         </p>
                         {item.variationLabel && (
