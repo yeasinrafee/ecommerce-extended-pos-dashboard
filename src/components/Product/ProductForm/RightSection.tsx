@@ -112,7 +112,7 @@ const RightSection: React.FC<RightSectionProps> = ({
 
   return (
     <div className="flex w-full flex-col gap-6">
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-background px-6 py-6 shadow-sm">
+      <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-6 shadow-sm">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Images</h2>
@@ -196,7 +196,7 @@ const RightSection: React.FC<RightSectionProps> = ({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-background px-4 py-4 shadow-sm">
+      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
         <h3 className="text-lg font-semibold text-slate-900">
           Categories
           <span className="ml-1 text-destructive">*</span>
@@ -229,7 +229,7 @@ const RightSection: React.FC<RightSectionProps> = ({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-background px-4 py-4 shadow-sm">
+      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
         <h3 className="text-lg font-semibold text-slate-900">
           Product Tags
         </h3>

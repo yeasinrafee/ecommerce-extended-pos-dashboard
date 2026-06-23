@@ -3,9 +3,11 @@ import React from "react";
 // generic variance errors when the parent form uses a specific field type.
 // The form `control` is still used at runtime and validated by react-hook-form.
 
+import { BiBarcodeReader } from "react-icons/bi";
 import CustomInput from "../../FormFields/CustomInput";
 import CustomSelect from "../../FormFields/CustomSelect";
 import CustomDatePicker from "../../FormFields/CustomDatePicker";
+import { Label } from "@/components/ui/label";
 
 interface Option {
   label: string;
@@ -17,6 +19,9 @@ interface GeneralInformationProps {
   setBasePrice: (value: number | null) => void;
   posPrice: number | null;
   setPosPrice: (value: number | null) => void;
+  barcode: string;
+  setBarcode: (value: string) => void;
+  barcodeError?: string;
   selectedDiscountType: string;
   discountValue: number | null;
   setDiscountValue: (value: number | null) => void;
@@ -48,6 +53,9 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
   setBasePrice,
   posPrice,
   setPosPrice,
+  barcode,
+  setBarcode,
+  barcodeError,
   selectedDiscountType,
   discountValue,
   setDiscountValue,
@@ -72,6 +80,8 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
   stockStatusOptions,
   productStatusOptions,
 }) => {
+  const barcodeInputRef = React.useRef<HTMLInputElement>(null);
+  const barcodeBlurTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const finalPrice = React.useMemo(() => {
     if (basePrice == null) return "";
     const disc = discountValue ?? 0;
@@ -117,6 +127,54 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
           placeholder="Optional"
           min={1}
         />
+        {/* Barcode field — accepts manual input and physical barcode scanners */}
+        <div className="space-y-2">
+          <Label htmlFor="barcode-input">
+            Barcode
+          </Label>
+          <div className="relative">
+            <input
+              id="barcode-input"
+              ref={barcodeInputRef}
+              type="text"
+              inputMode="numeric"
+              pattern="\d*"
+              value={barcode}
+              onChange={(e) => setBarcode(e.target.value)}
+              onBlur={() => {
+                barcodeBlurTimerRef.current = setTimeout(() => {
+                  if (
+                    document.activeElement === document.body ||
+                    document.activeElement === null
+                  ) {
+                    barcodeInputRef.current?.focus();
+                  }
+                }, 0);
+              }}
+              onFocus={() => {
+                if (barcodeBlurTimerRef.current !== null) {
+                  clearTimeout(barcodeBlurTimerRef.current);
+                  barcodeBlurTimerRef.current = null;
+                }
+              }}
+              placeholder="Digits only (e.g. 1234567890)"
+              className={`flex h-9 w-full rounded-md border bg-transparent px-3 py-1 pr-9 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${barcodeError ? "border-destructive focus-visible:ring-destructive" : "border-input"}`}
+              autoComplete="off"
+              aria-invalid={!!barcodeError}
+              aria-describedby={barcodeError ? "barcode-error" : undefined}
+            />
+            <BiBarcodeReader
+              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+              size={18}
+              aria-hidden="true"
+            />
+          </div>
+          {barcodeError && (
+            <p id="barcode-error" className="text-xs text-destructive">
+              {barcodeError}
+            </p>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">

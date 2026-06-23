@@ -1,24 +1,23 @@
-"use client";
+'use client';
 
-import type React from "react";
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import type React from 'react';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
-import { ChevronDown, ChevronRight } from "lucide-react";
+} from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
 
 interface SidebarItemProps {
   icon: React.ElementType;
@@ -34,6 +33,14 @@ interface SidebarItemProps {
     active?: boolean;
   }[];
 }
+
+const itemBase =
+  'flex items-center gap-3 w-full rounded-md px-3 py-2 text-[0.92rem] font-normal leading-5 transition-colors outline-none';
+
+const itemInactive = 'text-slate-700 hover:bg-slate-50 hover:text-slate-900';
+const itemActive   = 'bg-[#eef2ff] text-[#3460be] hover:bg-[#eef2ff] hover:text-[#3460be]';
+
+const iconBase = 'my-1 h-10 w-full flex items-center justify-center rounded-md transition-colors outline-none';
 
 const SidebarItem = ({
   icon: Icon,
@@ -54,20 +61,12 @@ const SidebarItem = ({
     }
   }, [pathname, hasSubItems, subItems]);
 
-  const toggleExpand = (e: React.MouseEvent) => {
-    if (hasSubItems) {
-      e.preventDefault();
-      setExpanded(!expanded);
-    }
-  };
-
   const isActive =
     active ||
     pathname === href ||
     (hasSubItems && subItems?.some((item) => item.href === pathname));
 
   if (collapsed) {
-    // If has sub-items, use dropdown menu
     if (hasSubItems) {
       return (
         <TooltipProvider>
@@ -75,31 +74,29 @@ const SidebarItem = ({
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
+                  <button
                     className={cn(
-                      "w-full h-10 p-0 my-1 relative",
-                      isActive && "bg-slate-700 text-white"
+                      iconBase,
+                      isActive ? itemActive : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900',
                     )}
                   >
-                    <Icon className="h-5 w-5" />
-                    <span className="sr-only">{label}</span>
-                  </Button>
+                    <Icon className='h-5 w-5' />
+                    <span className='sr-only'>{label}</span>
+                  </button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
-              <TooltipContent side="right" className="ml-1">
-                <div className="flex items-center gap-2">
+              <TooltipContent side='right' className='ml-1'>
+                <div className='flex items-center gap-2'>
                   <span>{label}</span>
-                  <ChevronRight className="h-3 w-3" />
+                  <ChevronRight className='h-3 w-3' />
                 </div>
               </TooltipContent>
             </Tooltip>
 
             <DropdownMenuContent
-              side="right"
-              align="start"
-              className="w-48 bg-slate-800 border-slate-700"
+              side='right'
+              align='start'
+              className='w-52 rounded-xl border border-slate-200 bg-white p-1 shadow-lg'
               sideOffset={8}
             >
               {subItems.map((item, index) => {
@@ -110,22 +107,21 @@ const SidebarItem = ({
                   <DropdownMenuItem
                     key={index}
                     className={cn(
-                      "text-slate-300 hover:bg-slate-700 hover:text-white focus:bg-slate-700 focus:text-white cursor-pointer",
-                      isSubItemActive && "bg-slate-700 text-white"
+                      'cursor-pointer rounded-md text-[0.92rem] font-normal transition-colors p-0',
+                      isSubItemActive
+                        ? 'bg-[#eef2ff] text-[#3460be] hover:bg-[#eef2ff] hover:text-[#3460be] focus:bg-[#eef2ff] focus:text-[#3460be]'
+                        : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 focus:bg-slate-50 focus:text-slate-900',
                     )}
                     asChild
                   >
                     {item.href ? (
-                      <Link
-                          href={item.href}
-                          className="flex items-center gap-3 w-full px-2 py-1.5"
-                        >
-                          {SubIcon ? <SubIcon className="h-4 w-4" /> : null}
-                          <span>{item.label}</span>
-                        </Link>
+                      <Link href={item.href} className='flex items-center gap-3 w-full px-3 py-2'>
+                        {SubIcon ? <SubIcon className='h-4 w-4' /> : null}
+                        <span>{item.label}</span>
+                      </Link>
                     ) : (
-                      <button className="flex items-center gap-3 w-full px-2 py-1.5">
-                        {SubIcon ? <SubIcon className="h-4 w-4" /> : null}
+                      <button className='flex items-center gap-3 w-full px-3 py-2'>
+                        {SubIcon ? <SubIcon className='h-4 w-4' /> : null}
                         <span>{item.label}</span>
                       </button>
                     )}
@@ -138,44 +134,37 @@ const SidebarItem = ({
       );
     }
 
-    // Simple item without sub-items
     return (
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
             <div>
               {href ? (
-                <Button
-                  variant="ghost"
-                  size="icon"
+                <Link
+                  href={href}
                   className={cn(
-                    "w-full h-10 p-0 my-1",
-                    isActive && "bg-slate-700 text-white"
+                    iconBase,
+                    isActive ? itemActive : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900',
                   )}
-                  asChild
                 >
-                  <Link href={href}>
-                    <Icon className="h-5 w-5" />
-                    <span className="sr-only">{label}</span>
-                  </Link>
-                </Button>
+                  <Icon className='h-5 w-5' />
+                  <span className='sr-only'>{label}</span>
+                </Link>
               ) : (
-                <Button
-                  variant="ghost"
-                  size="icon"
+                <button
                   className={cn(
-                    "w-full h-10 p-0 my-1",
-                    isActive && "bg-slate-700 text-white"
+                    iconBase,
+                    isActive ? itemActive : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900',
                   )}
                   onClick={onClick}
                 >
-                  <Icon className="h-5 w-5" />
-                  <span className="sr-only">{label}</span>
-                </Button>
+                  <Icon className='h-5 w-5' />
+                  <span className='sr-only'>{label}</span>
+                </button>
               )}
             </div>
           </TooltipTrigger>
-          <TooltipContent side="right" className="ml-1">
+          <TooltipContent side='right' className='ml-1'>
             {label}
           </TooltipContent>
         </Tooltip>
@@ -186,74 +175,63 @@ const SidebarItem = ({
   return (
     <div>
       {href && !hasSubItems ? (
-        <Button
-          variant="ghost"
-          className={cn(
-            "w-full justify-start gap-3 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700 hover:text-white",
-            isActive && "bg-slate-700 text-white"
-          )}
-          asChild
+        <Link
+          href={href}
+          className={cn(itemBase, isActive ? itemActive : itemInactive)}
         >
-          <Link href={href} className="flex items-center gap-3 w-full">
-            <Icon className="h-5 w-5" />
-            <span>{label}</span>
-          </Link>
-        </Button>
+          <Icon className='h-5 w-5' />
+          <span>{label}</span>
+        </Link>
       ) : (
-        <Button
-          variant="ghost"
-          className={cn(
-            "w-full justify-start gap-3 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700 hover:text-white",
-            isActive && "bg-slate-700 text-white"
-          )}
-          onClick={hasSubItems ? toggleExpand : onClick}
+        <button
+          className={cn(itemBase, isActive ? itemActive : itemInactive)}
+          onClick={hasSubItems ? () => setExpanded(!expanded) : onClick}
         >
-          <Icon className="h-5 w-5" />
+          <Icon className='h-5 w-5' />
           <span>{label}</span>
           {hasSubItems && (
-            <span className="ml-auto">
+            <span className='ml-auto'>
               {expanded ? (
-                <ChevronDown className="h-4 w-4" />
+                <ChevronDown className='h-4 w-4' />
               ) : (
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className='h-4 w-4' />
               )}
             </span>
           )}
-        </Button>
+        </button>
       )}
 
-      {/* Sub-items 6 -2 */}
       {hasSubItems && expanded && (
-        <div className="ml-3 mt-1 border-l border-slate-700 pl-4">
+        <div className='ml-4 mt-1 space-y-1 border-l border-slate-200 pl-3'>
           {subItems.map((item, index) => {
             const SubIcon = item.icon as React.ElementType | undefined;
             const isSubItemActive = item.active || pathname === item.href;
 
-            return (
-              <Button
+            return item.href ? (
+              <Link
                 key={index}
-                variant="ghost"
+                href={item.href}
                 className={cn(
-                  "w-full justify-start gap-3 px-3 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700 hover:text-white",
-                  isSubItemActive && "bg-slate-700 text-white"
+                  itemBase,
+                  'pl-4',
+                  isSubItemActive ? itemActive : itemInactive,
                 )}
-                asChild
               >
-                {item.href ? (
-                  <Link
-                    href={item.href}
-                    className="flex items-center gap-3 w-full pl-4"
-                  >
-                    {SubIcon ? <SubIcon className="h-4 w-4" /> : null}
-                    {item.label}
-                  </Link>
-                ) : (
-                  <button className="flex items-center gap-3 w-full pl-4">
-                    {SubIcon ? <SubIcon className="h-4 w-4" /> : null}
-                    {item.label}
-                  </button>
+                {SubIcon ? <SubIcon className='h-4 w-4' /> : null}
+                {item.label}
+              </Link>
+            ) : (
+              <button
+                key={index}
+                className={cn(
+                  itemBase,
+                  'pl-4',
+                  isSubItemActive ? itemActive : itemInactive,
                 )}
-              </Button>
+              >
+                {SubIcon ? <SubIcon className='h-4 w-4' /> : null}
+                {item.label}
+              </button>
             );
           })}
         </div>

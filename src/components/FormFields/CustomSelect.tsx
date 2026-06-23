@@ -93,7 +93,7 @@ export default function CustomSelect<
               value={selectValue}
               disabled={disabled}
             >
-              <SelectTrigger id={`select-${String(name)}`} className={cn("w-full bg-white", triggerClassName)}>
+              <SelectTrigger id={`select-${String(name)}`} className={cn("w-full", triggerClassName)}>
                 <SelectValue placeholder={placeholder} />
               </SelectTrigger>
               <SelectContent position="popper" className={cn(contentClassName)}>

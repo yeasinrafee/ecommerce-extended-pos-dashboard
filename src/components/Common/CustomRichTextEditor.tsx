@@ -360,11 +360,20 @@ export default function CustomRichTextEditor({ value, onChange, onProcessingChan
     return found;
   })();
 
+  const handleEditorWrapperClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    // If the click landed inside the actual tiptap content, let it be handled naturally
+    const target = e.target as HTMLElement;
+    if (target.closest('.tiptap')) return;
+    // Otherwise focus the editor at the end
+    editor?.commands.focus('end');
+  };
+
   return (
     <div className="prose-container [&_.tiptap_ul]:list-disc [&_.tiptap_ul]:pl-6 [&_.tiptap_ol]:list-decimal [&_.tiptap_ol]:pl-6 [&_.tiptap_em]:italic [&_.tiptap_del]:line-through [&_.tiptap_table]:my-4 [&_.tiptap_table]:w-full [&_.tiptap_table]:border-collapse [&_.tiptap_table]:border [&_.tiptap_table]:border-gray-300 [&_.tiptap_table]:table-fixed [&_.tiptap_table_th]:border [&_.tiptap_table_th]:border-gray-300 [&_.tiptap_table_th]:bg-gray-100 [&_.tiptap_table_th]:p-2 [&_.tiptap_table_th]:text-left [&_.tiptap_table_td]:border [&_.tiptap_table_td]:border-gray-300 [&_.tiptap_table_td]:p-2">
       <RichTextEditor
         editor={editor}
-        className="rounded-xl overflow-hidden border"
+        className="rounded-xl overflow-hidden border cursor-text"
+        onClick={handleEditorWrapperClick}
       >
         <RichTextEditor.Toolbar
           sticky
@@ -489,7 +498,7 @@ export default function CustomRichTextEditor({ value, onChange, onProcessingChan
           </RichTextEditor.ControlsGroup>
         </RichTextEditor.Toolbar>
 
-        <RichTextEditor.Content className="p-4 [&_img]:max-w-full [&_img]:h-auto [&_img]:max-h-[200px]" />
+        <RichTextEditor.Content className="min-h-[260px] p-4 [&_.tiptap]:min-h-[260px] [&_.tiptap]:cursor-text [&_img]:max-w-full [&_img]:h-auto [&_img]:max-h-[200px]" />
       </RichTextEditor>
     </div>
   );

@@ -37,7 +37,7 @@ const MainInformation: React.FC<MainInformationProps> = ({
   onEditorProcessingChange,
 }) => {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-background px-6 py-6 shadow-sm">
+    <div className="rounded-2xl border border-slate-200 bg-white px-6 py-6 shadow-sm">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold text-slate-900">{isEditMode ? 'Edit Product' : 'Create Product'}</h1>
         <p className="text-sm text-slate-500">

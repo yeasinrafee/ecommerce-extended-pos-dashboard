@@ -146,7 +146,7 @@ const SliderTable = ({ sliders, onEdit, onDelete, onOrderChange, savingOrder = f
   );
 
   return (
-    <div className="overflow-hidden rounded-xl border bg-background">
+    <div className="overflow-hidden rounded-xl border bg-white">
       <div className="border-b px-4 py-3 text-sm text-slate-500">
         {savingOrder ? "Saving slider order..." : "Drag rows to change the slider order."}
       </div>

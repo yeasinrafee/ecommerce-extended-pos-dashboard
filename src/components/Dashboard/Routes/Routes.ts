@@ -1,16 +1,16 @@
 import {
   LuLayoutDashboard,
-  LuBox,
+  LuPackage,
   LuShoppingCart,
   LuUsers,
-  LuLayers,
+  LuWarehouse,
   LuTicketPercent,
   LuGlobe,
   LuTruck,
-  LuImage,
-  LuSettings,
-  LuList,
+  LuNewspaper,
   LuLandmark,
+  LuUserCog,
+  LuStore,
 } from "react-icons/lu";
 
 export interface RouteItem {
@@ -33,7 +33,7 @@ export const routes: RouteItem[] = [
   },
   // --- Products ---
   {
-    icon: LuBox,
+    icon: LuPackage,
     label: "Products",
     href: "/dashboard/products",
     subItems: [
@@ -74,7 +74,7 @@ export const routes: RouteItem[] = [
     href: "/dashboard/orders",
   },
   {
-    icon: LuShoppingCart,
+    icon: LuStore,
     label: "POS Order",
     href: "/dashboard/pos-order",
     subItems: [
@@ -89,7 +89,7 @@ export const routes: RouteItem[] = [
     ],
   },
   {
-    icon: LuLayers,
+    icon: LuWarehouse,
     label: "Inventory",
     href: "",
     subItems: [
@@ -117,7 +117,7 @@ export const routes: RouteItem[] = [
     href: "/dashboard/bank",
   },
   {
-    icon: LuUsers,
+    icon: LuUserCog,
     label: "User Management",
     href: "",
     subItems: [
@@ -133,7 +133,7 @@ export const routes: RouteItem[] = [
   },
   {
     icon: LuTruck,
-    label: "Shipping Management",
+    label: "Shipping",
     href: "/dashboard/shipping/manage",
     subItems: [
       {
@@ -155,7 +155,7 @@ export const routes: RouteItem[] = [
     ],
   },
   {
-    icon: LuImage,
+    icon: LuNewspaper,
     label: "Blogs",
     href: "/dashboard/blog/manage",
     subItems: [
@@ -168,7 +168,6 @@ export const routes: RouteItem[] = [
       { label: "Blog Tags", href: "/dashboard/tags/blog-tags/manage" },
     ],
   },
-  // --- Users ---
   {
     icon: LuTicketPercent,
     label: "Promo & Offers",
@@ -209,9 +208,4 @@ export const routes: RouteItem[] = [
       { label: "Social Media Link", href: "/dashboard/web/social-media" },
     ],
   },
-  // {
-  //   icon: LuSettings,
-  //   label: "Settings",
-  //   href: "/admin/settings",
-  // },
 ];

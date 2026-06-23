@@ -14,7 +14,7 @@ const SearchBar = ({
   clearSearch: () => void;
 }) => {
   return (
-    <div className="relative flex items-center w-full max-w-sm bg-background">
+    <div className="relative flex items-center w-full max-w-sm">
       <div className="absolute left-3 flex items-center pointer-events-none">
         <Search className="h-4 w-4 text-gray-400" />
       </div>

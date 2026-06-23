@@ -90,6 +90,11 @@ const createProductSchema = z
     description: z.string().trim().min(1, "Description is required"),
     basePrice: z.preprocess(toNumber, z.number().positive()),
     posPrice: nullablePositivePriceSchema,
+    barcodeId: z.preprocess((value) => {
+      if (value === "" || value === null || value === undefined) return null;
+      const str = String(value).trim();
+      return str === "" ? null : str;
+    }, z.string().regex(/^\d+$/, "Barcode must contain digits only").nullable()),
     discountType: z.enum(["NONE", "FLAT_DISCOUNT", "PERCENTAGE_DISCOUNT"]),
     discountValue: nullableNumberSchema,
     discountStartDate: nullableDateStringSchema,
@@ -205,6 +210,7 @@ const defaultFormValues: z.infer<typeof createProductSchema> = {
   description: "",
   basePrice: 0,
   posPrice: null,
+  barcodeId: null,
   discountType: "NONE",
   discountValue: null,
   discountStartDate: null,
@@ -270,7 +276,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
     setValue,
     watch,
     reset,
-    formState: { isValid, isSubmitting, isDirty },
+    formState: { isValid, isSubmitting, isDirty, errors },
   } = useForm<z.infer<typeof createProductSchema>>({
     resolver: zodResolver(createProductSchema) as Resolver<
       z.infer<typeof createProductSchema>
@@ -284,6 +290,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
   const [description, setDescription] = React.useState("");
   const [basePrice, setBasePrice] = React.useState<number | null>(null);
   const [posPrice, setPosPrice] = React.useState<number | null>(null);
+  const [barcode, setBarcode] = React.useState("");
   const [discountValue, setDiscountValue] = React.useState<number | null>(null);
   const [discountStart, setDiscountStart] = React.useState<Date | null>(null);
   const [discountEnd, setDiscountEnd] = React.useState<Date | null>(null);
@@ -344,6 +351,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
     setDescription(p.description ?? "");
     setBasePrice(p.Baseprice ?? null);
     setPosPrice(p.posPrice ?? null);
+    setBarcode(p.barcodeId ?? "");
     setDiscountValue(p.discountValue ?? null);
     setDiscountStart(p.discountStartDate ? new Date(p.discountStartDate) : null);
     setDiscountEnd(p.discountEndDate ? new Date(p.discountEndDate) : null);
@@ -367,6 +375,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
       description: p.description ?? "",
       basePrice: p.Baseprice ?? 0,
       posPrice: p.posPrice ?? null,
+      barcodeId: p.barcodeId ?? null,
       discountType: p.discountType ?? "NONE",
       discountValue: p.discountValue ?? null,
       discountStartDate: p.discountStartDate ?? null,
@@ -469,6 +478,16 @@ export default function CreateProductForm({ productId }: { productId?: string })
   const updatePosPrice = (value: number | null) => {
     setPosPrice(value);
     setValue("posPrice", value, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+  };
+
+  const updateBarcode = (value: string) => {
+    // Strip non-digit characters at the handler level so scanner input is always clean
+    const digitsOnly = value.replace(/\D/g, "");
+    setBarcode(digitsOnly);
+    setValue("barcodeId", digitsOnly === "" ? null : digitsOnly, {
       shouldValidate: true,
       shouldDirty: true,
     });
@@ -715,6 +734,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
     payload.append("stockStatus", values.stockStatus);
     payload.append("categories", JSON.stringify(values.categories));
     payload.append("tags", JSON.stringify(values.tags));
+    if (barcode.trim()) payload.append("barcodeId", barcode.trim());
 
     const galleryMeta = rightData.galleryImages.map((image) => ({ id: image.id, name: image.name }));
     payload.append("galleryImagesMeta", JSON.stringify(galleryMeta));
@@ -752,6 +772,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
     payload.append("stockStatus", values.stockStatus);
     payload.append("categories", JSON.stringify(values.categories));
     payload.append("tags", JSON.stringify(values.tags));
+    if (barcode.trim()) payload.append("barcodeId", barcode.trim());
 
     // Main image handling
     const keepMainImage = !rightData.mainImage && !!rightData.mainImageExistingUrl;
@@ -783,6 +804,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
     setDescription("");
     setBasePrice(null);
     setPosPrice(null);
+    setBarcode("");
     setDiscountValue(null);
     setDiscountStart(null);
     setDiscountEnd(null);
@@ -834,6 +856,9 @@ export default function CreateProductForm({ productId }: { productId?: string })
           setBasePrice={updateBasePrice}
           posPrice={posPrice}
           setPosPrice={updatePosPrice}
+          barcode={barcode}
+          setBarcode={updateBarcode}
+          barcodeError={errors.barcodeId?.message}
           selectedDiscountType={selectedDiscountType}
           discountValue={discountValue}
           setDiscountValue={updateDiscountValue}
@@ -909,7 +934,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen ">
       {isEditMode && productLoading && (
         <div className="flex items-center justify-center py-20 text-slate-500">
           <span>Loading product data…</span>
@@ -932,7 +957,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
             onEditorProcessingChange={setIsEditorProcessing}
           />
 
-          <div className="rounded-2xl border border-slate-200 bg-background px-6 py-6 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white px-6 py-6 shadow-sm">
             <CustomTab
               tabs={tabItems}
               className="space-y-4"

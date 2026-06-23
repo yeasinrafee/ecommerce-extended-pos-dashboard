@@ -242,7 +242,7 @@ const CustomFileUpload: React.FC<CustomFileUploadProps> = ({
         className={`rounded-2xl border-2 border-dashed p-6 text-center transition focus:outline-none focus:ring ${disabled ? "cursor-not-allowed" : "cursor-pointer"} ${
           isDragging
             ? "border-indigo-400 bg-indigo-50"
-            : "border-slate-300 bg-background"
+            : "border-slate-300 bg-white"
         }`}> 
         <CloudUpload className="mx-auto h-6 w-6 text-slate-400" />
         <p className="mt-3 text-sm font-semibold text-slate-700">
@@ -296,7 +296,7 @@ const CustomFileUpload: React.FC<CustomFileUploadProps> = ({
           {files.map((file) => (
             <div
               key={file.id}
-                  className="relative overflow-hidden rounded-2xl border border-slate-200 bg-background"
+                  className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white"
             >
               <img
                 src={file.url}

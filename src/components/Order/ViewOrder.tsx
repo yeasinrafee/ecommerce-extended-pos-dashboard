@@ -88,7 +88,7 @@ export default function ViewOrder({ orderId }: ViewOrderProps) {
 
   if (error || !order) {
     return (
-      <div className="p-8 text-center bg-background rounded-lg border border-destructive/20 border-dashed">
+      <div className="p-8 text-center bg-white rounded-lg border border-destructive/20 border-dashed">
         <h2 className="text-xl font-semibold text-destructive">
           Error Loading Order
         </h2>
