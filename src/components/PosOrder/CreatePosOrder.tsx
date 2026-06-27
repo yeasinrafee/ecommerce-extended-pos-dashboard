@@ -1015,7 +1015,7 @@ const CreatePosOrder: React.FC = () => {
                 {cartItems.length > 0 && (
                   <button
                     onClick={clearCart}
-                    className="text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                    className="text-sm font-semibold text-red-500 hover:text-red-600 transition-colors"
                   >
                     Clear All
                   </button>
@@ -1106,7 +1106,7 @@ const CreatePosOrder: React.FC = () => {
                         )}
                         <button
                           onClick={() => removeFromCart(key)}
-                          className="mt-1 text-gray-300 hover:text-red-500 transition-colors"
+                          className="mt-1 text-red-400 hover:text-red-500 transition-colors"
                           title="Remove"
                         >
                           <X className="size-3" />

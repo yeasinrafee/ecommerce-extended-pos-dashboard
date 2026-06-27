@@ -94,20 +94,64 @@ export const routes: RouteItem[] = [
     href: "",
     subItems: [
       {
-        label: "Manage Stock",
-        href: "/dashboard/stocks/manage",
-      },
-      {
-        label: "Stock Transfers",
-        href: "/dashboard/stock-transfers/manage",
+        label: "Dashboard",
+        href: "/inventory/dashboard",
       },
       {
         label: "Suppliers",
-        href: "/dashboard/suppliers",
+        href: "/inventory/suppliers",
       },
       {
-        label: "Store/Branch",
-        href: "/dashboard/stores",
+        label: "Purchase Orders",
+        href: "/inventory/purchases",
+      },
+      {
+        label: "Goods Receive (GRN)",
+        href: "/inventory/grn",
+      },
+      {
+        label: "Location-wise Stock",
+        href: "/inventory/stocks",
+      },
+      {
+        label: "Manage Locations",
+        href: "/inventory/locations",
+      },
+      {
+        label: "Stock Ledger",
+        href: "/inventory/stock-ledger",
+      },
+      {
+        label: "Stock Transfers",
+        href: "/inventory/transfers",
+      },
+      {
+        label: "Supplier Returns",
+        href: "/inventory/supplier-returns",
+      },
+      {
+        label: "Customer Returns",
+        href: "/inventory/customer-returns",
+      },
+      {
+        label: "Damage Inventory",
+        href: "/inventory/damages",
+      },
+      {
+        label: "Stock Adjustment",
+        href: "/inventory/adjustments",
+      },
+      {
+        label: "Low Stock Alerts",
+        href: "/inventory/low-stock",
+      },
+      {
+        label: "Reorder Suggestions",
+        href: "/inventory/reorder",
+      },
+      {
+        label: "Inventory Reports",
+        href: "/inventory/reports",
       },
     ],
   },
