@@ -180,7 +180,7 @@ const totalQty = (items: ReturnItem[]) => (items || []).reduce((s, i) => s + (i.
 export default function CustomerReturnsPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  const [limit] = useState(10);
+  const [limit, setLimit] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
@@ -194,7 +194,7 @@ export default function CustomerReturnsPage() {
 
   // ─── Queries ─────────────────────────────────────────────────────────────────
   const { data: returnsRes, isLoading } = useQuery({
-    queryKey: ['customer-returns', 'list', page, searchTerm, selectedLocation, selectedStatus],
+    queryKey: ['customer-returns', 'list', page, limit, searchTerm, selectedLocation, selectedStatus],
     queryFn: async () => {
       const r = await apiClient.get<ApiResponse<any>>('/customer-returns/get-all-paginated', {
         params: { page, limit, searchTerm: searchTerm || undefined, locationId: selectedLocation || undefined, status: selectedStatus || undefined },
@@ -325,7 +325,7 @@ export default function CustomerReturnsPage() {
   };
 
   const itemsList = returnsRes?.data || [];
-  const meta = returnsRes?.meta || { page: 1, totalPages: 1, total: 0, limit: 10 };
+  const meta = returnsRes?.meta || { page: 1, totalPages: 1, total: 0, limit };
 
   return (
     <div className="space-y-6">
@@ -445,12 +445,16 @@ export default function CustomerReturnsPage() {
                 ))}
               </tbody>
             </table>
-            {meta.totalPages > 1 && (
-              <div className="p-4 border-t border-slate-100 flex items-center justify-between">
-                <p className="text-xs text-slate-500">Page {meta.page} of {meta.totalPages} ({meta.total} entries)</p>
-                <PaginationControl currentPage={meta.page} totalPages={meta.totalPages} onPageChange={setPage} />
+            <div className="p-4 border-t border-slate-100 flex items-center justify-between">
+                <PaginationControl
+                  currentPage={meta.page}
+                  totalPages={meta.totalPages}
+                  onPageChange={setPage}
+                  totalItems={meta.total}
+                  itemsPerPage={limit}
+                  onLimitChange={(newLimit) => { setLimit(newLimit); setPage(1); }}
+                />
               </div>
-            )}
           </div>
         )}
       </Card>

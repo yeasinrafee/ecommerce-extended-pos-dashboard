@@ -333,7 +333,7 @@ function ProductCombobox({
 export default function GRNPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  const [limit] = useState(10);
+  const [limit, setLimit] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedSupplier, setSelectedSupplier] = useState('');
@@ -350,7 +350,7 @@ export default function GRNPage() {
 
   // ─── Queries ──────────────────────────────────────────────────────────────────
   const { data: grnRes, isLoading: isLoadingGRNs } = useQuery({
-    queryKey: ['grns', 'list', page, searchTerm, selectedLocation, selectedSupplier],
+    queryKey: ['grns', 'list', page, limit, searchTerm, selectedLocation, selectedSupplier],
     queryFn: async () => {
       const r = await apiClient.get<ApiResponse<any>>('/goods-receives/get-all-paginated', {
         params: { page, limit, searchTerm: searchTerm || undefined, locationId: selectedLocation || undefined, supplierId: selectedSupplier || undefined },
@@ -487,7 +487,7 @@ export default function GRNPage() {
   };
 
   const itemsList: GoodsReceive[] = grnRes?.data || [];
-  const meta = grnRes?.meta || { page: 1, totalPages: 1, total: 0, limit: 10 };
+  const meta = grnRes?.meta || { page: 1, totalPages: 1, total: 0, limit };
 
   // ─── Render ────────────────────────────────────────────────────────────────────
   return (
@@ -648,12 +648,16 @@ export default function GRNPage() {
               </tbody>
             </table>
 
-            {meta.totalPages > 1 && (
-              <div className="p-4 border-t border-slate-100 flex items-center justify-between">
-                <p className="text-xs text-slate-500">Page {meta.page} of {meta.totalPages} ({meta.total} entries)</p>
-                <PaginationControl currentPage={meta.page} totalPages={meta.totalPages} onPageChange={setPage} />
+            <div className="p-4 border-t border-slate-100 flex items-center justify-between">
+                <PaginationControl
+                  currentPage={meta.page}
+                  totalPages={meta.totalPages}
+                  onPageChange={setPage}
+                  totalItems={meta.total}
+                  itemsPerPage={limit}
+                  onLimitChange={(newLimit) => { setLimit(newLimit); setPage(1); }}
+                />
               </div>
-            )}
           </div>
         )}
       </Card>

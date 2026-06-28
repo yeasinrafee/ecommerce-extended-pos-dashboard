@@ -185,7 +185,7 @@ const statusColors: Record<string, string> = {
 export default function SupplierReturnsPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  const [limit] = useState(10);
+  const [limit, setLimit] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
@@ -203,7 +203,7 @@ export default function SupplierReturnsPage() {
 
   // ─── Queries ────────────────────────────────────────────────────────────────
   const { data: returnsRes, isLoading } = useQuery({
-    queryKey: ['supplier-returns', 'list', page, searchTerm, selectedLocation, selectedStatus, selectedSupplier],
+    queryKey: ['supplier-returns', 'list', page, limit, searchTerm, selectedLocation, selectedStatus, selectedSupplier],
     queryFn: async () => {
       const r = await apiClient.get<ApiResponse<any>>('/supplier-returns/get-all-paginated', {
         params: { page, limit, searchTerm: searchTerm || undefined, locationId: selectedLocation || undefined, status: selectedStatus || undefined, supplierId: selectedSupplier || undefined },
@@ -395,7 +395,7 @@ export default function SupplierReturnsPage() {
   }, [watchedItems]);
 
   const itemsList = returnsRes?.data || [];
-  const meta = returnsRes?.meta || { page: 1, totalPages: 1, total: 0, limit: 10 };
+  const meta = returnsRes?.meta || { page: 1, totalPages: 1, total: 0, limit };
 
   // ─── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -516,12 +516,16 @@ export default function SupplierReturnsPage() {
                 ))}
               </tbody>
             </table>
-            {meta.totalPages > 1 && (
-              <div className="p-4 border-t border-slate-100 flex items-center justify-between">
-                <p className="text-xs text-slate-500">Page {meta.page} of {meta.totalPages} ({meta.total} entries)</p>
-                <PaginationControl currentPage={meta.page} totalPages={meta.totalPages} onPageChange={setPage} />
+            <div className="p-4 border-t border-slate-100 flex items-center justify-between">
+                <PaginationControl
+                  currentPage={meta.page}
+                  totalPages={meta.totalPages}
+                  onPageChange={setPage}
+                  totalItems={meta.total}
+                  itemsPerPage={limit}
+                  onLimitChange={(newLimit) => { setLimit(newLimit); setPage(1); }}
+                />
               </div>
-            )}
           </div>
         )}
       </Card>

@@ -60,20 +60,26 @@ const fmt = (n: number | null | undefined) =>
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
-// Excel export as CSV — UTF-8 BOM + ISO dates prevents #### in Excel, no format-mismatch warning
+// Excel export as CSV — UTF-8 BOM, dates prefixed with apostrophe to force text in Excel (prevents ####)
 function downloadExcel(
   filename: string,
   headers: string[],
   rows: (string | number | null | undefined)[][],
+  dateColIndexes: number[] = [],
 ) {
-  const quote = (v: string | number | null | undefined) =>
-    `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const quoteVal = (v: string | number | null | undefined, isDate = false) => {
+    const s = String(v ?? "").replace(/"/g, '""');
+    // Prefix with apostrophe forces Excel to treat the cell as text — prevents #### and auto date parsing
+    return isDate ? `"'${s}"` : `"${s}"`;
+  };
 
   const csv =
     "\uFEFF" +
     [
-      headers.map(quote).join(","),
-      ...rows.map((r) => r.map(quote).join(",")),
+      headers.map((h) => quoteVal(h)).join(","),
+      ...rows.map((r) =>
+        r.map((cell, ci) => quoteVal(cell, dateColIndexes.includes(ci))).join(","),
+      ),
     ].join("\r\n");
 
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -656,6 +662,7 @@ export default function InventoryReportsPage() {
           m.quantityChanged,
           m.performer?.email,
         ]),
+        [0],
       );
     } else if (tab === "transfers") {
       downloadExcel(
@@ -669,6 +676,7 @@ export default function InventoryReportsPage() {
           t.status,
           t.creator?.email,
         ]),
+        [0],
       );
     } else if (tab === "damages") {
       downloadExcel(
@@ -694,6 +702,7 @@ export default function InventoryReportsPage() {
           d.totalLossValuation,
           d.creator?.email,
         ]),
+        [0],
       );
     } else if (tab === "adjustments") {
       downloadExcel(
@@ -720,6 +729,7 @@ export default function InventoryReportsPage() {
           (a.totalAdded ?? 0) - (a.totalRemoved ?? 0),
           a.createdBy,
         ]),
+        [0],
       );
     } else if (tab === "lowstock") {
       downloadExcel(

@@ -365,7 +365,7 @@ function ProductCombobox({
 export default function PurchaseOrdersPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  const [limit] = useState(10);
+  const [limit, setLimit] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
   const [selectedSupplier, setSelectedSupplier] = useState("");
@@ -386,6 +386,7 @@ export default function PurchaseOrdersPage() {
       "purchases",
       "list",
       page,
+      limit,
       searchTerm,
       selectedStatus,
       selectedSupplier,
@@ -679,7 +680,7 @@ export default function PurchaseOrdersPage() {
   };
 
   const itemsList: PurchaseOrder[] = poRes?.data || [];
-  const meta = poRes?.meta || { page: 1, totalPages: 1, total: 0, limit: 10 };
+  const meta = poRes?.meta || { page: 1, totalPages: 1, total: 0, limit };
 
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
@@ -926,18 +927,16 @@ export default function PurchaseOrdersPage() {
                 ))}
               </tbody>
             </table>
-            {meta.totalPages > 1 && (
-              <div className="p-4 border-t border-slate-100 flex items-center justify-between">
-                <p className="text-xs text-slate-500">
-                  Page {meta.page} of {meta.totalPages} ({meta.total} entries)
-                </p>
+            <div className="p-4 border-t border-slate-100 flex items-center justify-between">
                 <PaginationControl
                   currentPage={meta.page}
                   totalPages={meta.totalPages}
                   onPageChange={setPage}
+                  totalItems={meta.total}
+                  itemsPerPage={limit}
+                  onLimitChange={(newLimit) => { setLimit(newLimit); setPage(1); }}
                 />
               </div>
-            )}
           </div>
         )}
       </Card>

@@ -51,7 +51,7 @@ interface LowStockAlert {
 export default function LowStockAlertsPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  const [limit] = useState(10);
+  const [limit, setLimit] = useState(10);
   const [selectedLocation, setSelectedLocation] = useState("");
 
   const [configOpen, setConfigOpen] = useState(false);

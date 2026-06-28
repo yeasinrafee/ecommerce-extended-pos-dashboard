@@ -40,7 +40,7 @@ interface StockMovement {
 
 export default function StockLedgerPage() {
   const [page, setPage] = useState(1);
-  const [limit] = useState(15);
+  const [limit, setLimit] = useState(10);
   const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedProduct, setSelectedProduct] = useState('');
   const [selectedType, setSelectedType] = useState('');

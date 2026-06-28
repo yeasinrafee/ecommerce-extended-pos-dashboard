@@ -68,7 +68,7 @@ interface StockValuationSummary {
 export default function LocationStocksPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  const [limit] = useState(15);
+  const [limit, setLimit] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedLocation, setSelectedLocation] = useState("");
   const [configOpen, setConfigOpen] = useState(false);
@@ -412,19 +412,16 @@ export default function LocationStocksPage() {
             </table>
 
             {/* Pagination */}
-            {meta.totalPages > 1 && (
-              <div className="p-4 border-t border-slate-100 flex items-center justify-between">
-                <p className="text-xs text-slate-500">
-                  Showing page {meta.page} of {meta.totalPages} ({meta.total}{" "}
-                  entries)
-                </p>
+            <div className="p-4 border-t border-slate-100 flex items-center justify-between">
                 <PaginationControl
                   currentPage={meta.page}
                   totalPages={meta.totalPages}
                   onPageChange={setPage}
+                  totalItems={meta.total}
+                  itemsPerPage={limit}
+                  onLimitChange={(newLimit) => { setLimit(newLimit); setPage(1); }}
                 />
               </div>
-            )}
           </div>
         )}
       </Card>

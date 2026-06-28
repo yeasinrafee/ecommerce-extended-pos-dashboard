@@ -19,7 +19,7 @@ export default function ManageLocation() {
   const [modalOpen, setModalOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Location | null>(null);
   const [page, setPage] = React.useState(1);
-  const limit = 10;
+  const [limit, setLimit] = React.useState(10);
 
   const [searchInput, setSearchInput] = React.useState("");
   const [searchTerm, setSearchTerm] = React.useState<string | undefined>(undefined);
@@ -209,6 +209,7 @@ export default function ManageLocation() {
           currentPage={page}
           totalItems={data?.meta.total ?? 0}
           onPageChange={setPage}
+          onLimitChange={(newLimit) => { setLimit(newLimit); setPage(1); }}
           renderRowActions={(location) => (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

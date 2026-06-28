@@ -197,7 +197,7 @@ const statusColors: Record<string, string> = {
 export default function DamageInventoryPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  const [limit] = useState(10);
+  const [limit, setLimit] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
@@ -214,7 +214,7 @@ export default function DamageInventoryPage() {
 
   // ─── Queries ────────────────────────────────────────────────────────────────
   const { data: damagesRes, isLoading } = useQuery({
-    queryKey: ['damages', 'list', page, searchTerm, selectedLocation, selectedStatus],
+    queryKey: ['damages', 'list', page, limit, searchTerm, selectedLocation, selectedStatus],
     queryFn: async () => {
       const r = await apiClient.get<ApiResponse<any>>('/damages/get-all-paginated', {
         params: { page, limit, searchTerm: searchTerm || undefined, locationId: selectedLocation || undefined, status: selectedStatus || undefined },
@@ -385,7 +385,7 @@ export default function DamageInventoryPage() {
   };
 
   const itemsList = damagesRes?.data || [];
-  const meta = damagesRes?.meta || { page: 1, totalPages: 1, total: 0, limit: 10 };
+  const meta = damagesRes?.meta || { page: 1, totalPages: 1, total: 0, limit };
 
   // ─── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -516,12 +516,16 @@ export default function DamageInventoryPage() {
               </tbody>
             </table>
 
-            {meta.totalPages > 1 && (
-              <div className="p-4 border-t border-slate-100 flex items-center justify-between">
-                <p className="text-xs text-slate-500">Page {meta.page} of {meta.totalPages} ({meta.total} entries)</p>
-                <PaginationControl currentPage={meta.page} totalPages={meta.totalPages} onPageChange={setPage} />
+            <div className="p-4 border-t border-slate-100 flex items-center justify-between">
+                <PaginationControl
+                  currentPage={meta.page}
+                  totalPages={meta.totalPages}
+                  onPageChange={setPage}
+                  totalItems={meta.total}
+                  itemsPerPage={limit}
+                  onLimitChange={(newLimit) => { setLimit(newLimit); setPage(1); }}
+                />
               </div>
-            )}
           </div>
         )}
       </Card>

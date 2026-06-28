@@ -37,6 +37,7 @@ type Props<T = Record<string, unknown>> = {
   currentPage?: number;
   onPageChange?: (page: number) => void;
   totalItems?: number;
+  onLimitChange?: (limit: number) => void;
 
   searchTerm?: string;
 };
@@ -67,6 +68,7 @@ export default function Table<T = Record<string, unknown>>({
   currentPage: currentPageProp,
   onPageChange,
   totalItems,
+  onLimitChange,
   searchTerm,
 }: Props<T>) {
   const [currentPage, setCurrentPage] = useState(1);
@@ -192,6 +194,7 @@ export default function Table<T = Record<string, unknown>>({
           onPageChange={handlePageChange}
           totalItems={serverSide ? (totalItems ?? 0) : filtered.length}
           itemsPerPage={pageSize}
+          onLimitChange={onLimitChange}
         />
       </div>
     </div>

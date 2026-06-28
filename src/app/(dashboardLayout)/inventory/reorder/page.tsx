@@ -66,7 +66,7 @@ interface ReorderSuggestion {
 export default function ReorderSuggestionsPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  const [limit] = useState(10);
+  const [limit, setLimit] = useState(10);
   const [selectedLocation, setSelectedLocation] = useState("");
 
   const [selectedSuggestions, setSelectedSuggestions] = useState<

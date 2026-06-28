@@ -381,7 +381,7 @@ function LocationSelect({
 export default function StockTransfersPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  const [limit] = useState(10);
+  const [limit, setLimit] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
   const [selectedSource, setSelectedSource] = useState('');
@@ -400,7 +400,7 @@ export default function StockTransfersPage() {
 
   // ─── Queries ────────────────────────────────────────────────────────────────
   const { data: transfersRes, isLoading } = useQuery({
-    queryKey: ['transfers', 'list', page, searchTerm, selectedStatus, selectedSource, selectedDest],
+    queryKey: ['transfers', 'list', page, limit, searchTerm, selectedStatus, selectedSource, selectedDest],
     queryFn: async () => {
       const r = await apiClient.get<ApiResponse<any>>('/stock-transfers/get-all-paginated', {
         params: {
@@ -823,12 +823,16 @@ export default function StockTransfersPage() {
                 ))}
               </tbody>
             </table>
-            {meta.totalPages > 1 && (
-              <div className="p-4 border-t border-slate-100 flex items-center justify-between">
-                <p className="text-xs text-slate-500">Page {meta.page} of {meta.totalPages} ({meta.total} total)</p>
-                <PaginationControl currentPage={meta.page} totalPages={meta.totalPages} onPageChange={setPage} />
+            <div className="p-4 border-t border-slate-100 flex items-center justify-between">
+                <PaginationControl
+                  currentPage={meta.page}
+                  totalPages={meta.totalPages}
+                  onPageChange={setPage}
+                  totalItems={meta.total}
+                  itemsPerPage={limit}
+                  onLimitChange={(newLimit) => { setLimit(newLimit); setPage(1); }}
+                />
               </div>
-            )}
           </div>
         )}
       </Card>
