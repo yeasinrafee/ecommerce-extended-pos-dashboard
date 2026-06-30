@@ -7,6 +7,7 @@ export const OrderRoutes = {
   getById: (id: string) => `${orderBase}/${id}`,
   updateStatus: (id: string) => `${orderBase}/${id}/status`,
   cancel: (id: string) => `${orderBase}/${id}/cancel`,
+  complete: (id: string) => `${orderBase}/${id}/complete`,
 };
 
 export default OrderRoutes;

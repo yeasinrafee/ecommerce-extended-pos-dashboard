@@ -4,1557 +4,694 @@ import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api";
 import { ApiResponse } from "@/types/auth";
-import {
-  LuFileSpreadsheet,
-  LuPrinter,
-  LuTrendingUp,
-  LuDollarSign,
-  LuArrowLeftRight,
-  LuOctagonAlert,
-  LuActivity,
-  LuSlidersHorizontal,
-  LuTriangleAlert,
-  LuPackage,
-} from "react-icons/lu";
-import Loader from "@/components/Common/Loader";
+import { LuFileSpreadsheet, LuPrinter } from "react-icons/lu";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PaginationControl } from "@/components/Common/Pagination";
 
-// ─── Types ─────────────────────────────────────────────────────────────────────
-interface ValuationSummary {
-  totalUniqueProducts: number;
-  totalPhysicalQuantity: number;
-  totalReservedQuantity: number;
-  totalValueCost: number;
-  totalValueRetail: number;
-}
-interface LocationBreakdown {
-  name: string;
-  code: string;
-  distinctProducts: number;
-  quantity: number;
-  reservedQty: number;
-  costValuation: number;
-  retailValuation: number;
-}
-interface ProductBreakdown {
-  productId: string;
-  productName: string;
-  sku: string | null;
-  totalQty: number;
-  totalReserved: number;
-  costValuation: number;
-  retailValuation: number;
-  locationCount: number;
-}
-
-// ─── Helpers ───────────────────────────────────────────────────────────────────
+// ─── helpers ──────────────────────────────────────────────────────────────────
 const fmt = (n: number | null | undefined) =>
-  (Number(n) || 0).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
-// Excel export as CSV — UTF-8 BOM, dates prefixed with apostrophe to force text in Excel (prevents ####)
-function downloadExcel(
-  filename: string,
-  headers: string[],
-  rows: (string | number | null | undefined)[][],
-  dateColIndexes: number[] = [],
-) {
-  const quoteVal = (v: string | number | null | undefined, isDate = false) => {
+const defaultStart = () => {
+  const d = new Date();
+  d.setDate(d.getDate() - 29);
+  return d.toISOString().slice(0, 10);
+};
+
+function downloadCSV(filename: string, headers: string[], rows: (string | number | null | undefined)[][], dateColIdx: number[] = []) {
+  const q = (v: string | number | null | undefined, isDate = false) => {
     const s = String(v ?? "").replace(/"/g, '""');
-    // Prefix with apostrophe forces Excel to treat the cell as text — prevents #### and auto date parsing
     return isDate ? `"'${s}"` : `"${s}"`;
   };
-
-  const csv =
-    "\uFEFF" +
-    [
-      headers.map((h) => quoteVal(h)).join(","),
-      ...rows.map((r) =>
-        r.map((cell, ci) => quoteVal(cell, dateColIndexes.includes(ci))).join(","),
-      ),
-    ].join("\r\n");
-
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
+  const csv = "\uFEFF" + [
+    headers.map((h) => q(h)).join(","),
+    ...rows.map((r) => r.map((c, i) => q(c, dateColIdx.includes(i))).join(",")),
+  ].join("\r\n");
   const a = document.createElement("a");
-  a.href = url;
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
   a.download = filename.endsWith(".csv") ? filename : filename + ".csv";
   a.click();
-  URL.revokeObjectURL(url);
 }
 
-const movTypeColor: Record<string, string> = {
-  IN: "bg-green-100 text-green-700",
-  OUT: "bg-red-100 text-red-700",
-  ADJUSTMENT: "bg-blue-100 text-blue-700",
-  TRANSFER_IN: "bg-teal-100 text-teal-700",
-  TRANSFER_OUT: "bg-orange-100 text-orange-700",
-  DAMAGE: "bg-rose-100 text-rose-700",
+const DIRECTION_COLOR: Record<string, string> = {
+  IN:  "bg-emerald-100 text-emerald-700 border-emerald-200",
+  OUT: "bg-rose-100 text-rose-700 border-rose-200",
 };
 
-const statusColor: Record<string, string> = {
-  COMPLETED: "bg-green-100 text-green-700",
-  DRAFT: "bg-yellow-100 text-yellow-700",
-  CANCELLED: "bg-gray-100 text-gray-500",
-  PENDING: "bg-blue-100 text-blue-700",
-  APPROVED: "bg-indigo-100 text-indigo-700",
-  IN_TRANSIT: "bg-orange-100 text-orange-700",
+const MOV_LABEL: Record<string, string> = {
+  PURCHASE:        "Stock Received (GRN)",
+  SALE:            "Stock Sold (POS)",
+  CUSTOMER_RETURN: "Customer Return",
+  SUPPLIER_RETURN: "Supplier Return",
+  TRANSFER_IN:     "Transfer In",
+  TRANSFER_OUT:    "Transfer Out",
+  ADJUSTMENT_IN:   "Adjustment (+)",
+  ADJUSTMENT_OUT:  "Adjustment (-)",
+  DAMAGE:          "Damage / Waste",
+  EXPIRED:         "Expired Write-off",
 };
 
-const LIMIT = 20;
+const LIMIT = 50;
 
-// ─── Page ──────────────────────────────────────────────────────────────────────
+// ─── types ────────────────────────────────────────────────────────────────────
+interface ActivityRow {
+  id: string; date: string; dateFormatted: string; timeFormatted: string;
+  movementType: string; movementLabel: string; direction: "IN" | "OUT";
+  product: { id: string; name: string; sku: string; barcodeId: string };
+  location: { id: string; name: string; code: string };
+  previousQty: number; quantityChanged: number; currentQty: number;
+  unitCost: number; totalCostImpact: number;
+  referenceType: string; referenceId: string; performedBy: string; notes: string;
+}
+interface ActivitySummary { totalIn: number; totalOut: number; netChange: number; totalTransactions: number }
+interface ValuationSummary { totalUniqueProducts: number; totalPhysicalQuantity: number; totalReservedQuantity: number; totalValueCost: number; totalValueRetail: number }
+interface LocationBreakdown { name: string; code: string; distinctProducts: number; quantity: number; reservedQty: number; costValuation: number; retailValuation: number }
+interface ProductBreakdown { productId: string; productName: string; sku: string | null; totalQty: number; totalReserved: number; costValuation: number; retailValuation: number; locationCount: number }
+
+// ─── main page ────────────────────────────────────────────────────────────────
 export default function InventoryReportsPage() {
-  const [activeTab, setActiveTab] = useState("valuation");
-  const [selectedLocation, setSelectedLocation] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [tab, setTab] = useState("activity");
+  const [location, setLocation] = useState("");
+  const [start, setStart] = useState(defaultStart());
+  const [end, setEnd] = useState(todayStr());
+  const [movType, setMovType] = useState("");
+  const [search, setSearch] = useState("");
+  const [actPage, setActPage] = useState(1);
+  const [valPage, setValPage] = useState(1);
   const [movPage, setMovPage] = useState(1);
   const [trfPage, setTrfPage] = useState(1);
   const [dmgPage, setDmgPage] = useState(1);
   const [adjPage, setAdjPage] = useState(1);
   const [lstPage, setLstPage] = useState(1);
 
-  // ── Queries ──────────────────────────────────────────────────────────────────
-  const { data: locationsRes } = useQuery({
-    queryKey: ["reports", "locations"],
+  const { data: locList = [] } = useQuery({
+    queryKey: ["rpt-locs"],
+    queryFn: async () => (await apiClient.get<ApiResponse<any[]>>("/stocks/locations/get-all")).data.data ?? [],
+  });
+
+  // Activity
+  const { data: actData, isLoading: actLoad } = useQuery({
+    queryKey: ["rpt-activity", actPage, location, start, end, movType, search],
     queryFn: async () => {
-      const r = await apiClient.get<ApiResponse<any[]>>(
-        "/stocks/locations/get-all",
-      );
-      return (r.data.data ?? []) as any[];
+      const r = await apiClient.get<ApiResponse<ActivityRow[]>>("/stocks/reports/activity", {
+        params: { page: actPage, limit: LIMIT, locationId: location || undefined, startDate: start || undefined, endDate: end || undefined, movementType: movType || undefined, searchTerm: search || undefined },
+      });
+      const meta = r.data.meta as any;
+      const summary: ActivitySummary | undefined = meta
+        ? { totalIn: meta.totalIn ?? 0, totalOut: meta.totalOut ?? 0, netChange: meta.netChange ?? 0, totalTransactions: meta.totalTransactions ?? meta.total ?? 0 }
+        : undefined;
+      return { data: r.data.data ?? [] as ActivityRow[], meta: r.data.meta ?? { page:1,totalPages:1,total:0,limit:LIMIT }, summary };
     },
   });
 
-  const { data: valuationData, isLoading: isLoadingValuation } = useQuery({
-    queryKey: ["reports", "valuation", selectedLocation],
+  // Valuation
+  const { data: valData, isLoading: valLoad } = useQuery({
+    queryKey: ["rpt-val", location],
     queryFn: async () => {
-      const r = await apiClient.get<ApiResponse<any>>(
-        "/stocks/reports/current",
-        {
-          params: { locationId: selectedLocation || undefined },
-        },
-      );
-      const d = r.data.data;
-      return {
-        summary: (d?.summary ?? null) as ValuationSummary | null,
-        locationBreakdown: (Array.isArray(d?.locationBreakdown)
-          ? d.locationBreakdown
-          : []) as LocationBreakdown[],
-        productBreakdown: (Array.isArray(d?.productBreakdown)
-          ? d.productBreakdown
-          : []) as ProductBreakdown[],
-      };
+      const d = (await apiClient.get<ApiResponse<any>>("/stocks/reports/current", { params: { locationId: location || undefined } })).data.data;
+      return { summary: d?.summary as ValuationSummary|null, locationBreakdown: (d?.locationBreakdown ?? []) as LocationBreakdown[], productBreakdown: (d?.productBreakdown ?? []) as ProductBreakdown[] };
     },
+    enabled: tab === "valuation",
   });
 
-  const { data: movementsData, isLoading: isLoadingMovements } = useQuery({
-    queryKey: [
-      "reports",
-      "movements",
-      movPage,
-      selectedLocation,
-      startDate,
-      endDate,
-    ],
+  // Movements (raw ledger)
+  const { data: movData, isLoading: movLoad } = useQuery({
+    queryKey: ["rpt-mov", movPage, location, movType, start, end],
     queryFn: async () => {
-      const r = await apiClient.get<ApiResponse<any>>(
-        "/stocks/reports/movements",
-        {
-          params: {
-            page: movPage,
-            limit: LIMIT,
-            locationId: selectedLocation || undefined,
-            startDate: startDate || undefined,
-            endDate: endDate || undefined,
-          },
-        },
-      );
-      const p = r.data;
-      return {
-        data: (Array.isArray(p.data) ? p.data : []) as any[],
-        meta: p.meta ?? { page: 1, totalPages: 1, total: 0, limit: LIMIT },
-      };
+      const r = await apiClient.get<ApiResponse<any>>("/stocks/reports/movements", { params: { page: movPage, limit: LIMIT, locationId: location||undefined, movementType: movType||undefined, startDate: start||undefined, endDate: end||undefined } });
+      return { data: r.data.data??[] as any[], meta: r.data.meta??{page:1,totalPages:1,total:0,limit:LIMIT} };
     },
-    enabled: activeTab === "movements",
+    enabled: tab === "movements",
   });
 
-  const { data: transfersData, isLoading: isLoadingTransfers } = useQuery({
-    queryKey: [
-      "reports",
-      "transfers",
-      trfPage,
-      selectedLocation,
-      startDate,
-      endDate,
-    ],
+  // Transfers
+  const { data: trfData, isLoading: trfLoad } = useQuery({
+    queryKey: ["rpt-trf", trfPage, location, start, end],
     queryFn: async () => {
-      const r = await apiClient.get<ApiResponse<any>>(
-        "/stocks/reports/transfers",
-        {
-          params: {
-            page: trfPage,
-            limit: LIMIT,
-            sourceLocationId: selectedLocation || undefined,
-            startDate: startDate || undefined,
-            endDate: endDate || undefined,
-          },
-        },
-      );
-      const p = r.data;
-      return {
-        data: (Array.isArray(p.data) ? p.data : []) as any[],
-        meta: p.meta ?? { page: 1, totalPages: 1, total: 0, limit: LIMIT },
-      };
+      const r = await apiClient.get<ApiResponse<any>>("/stocks/reports/transfers", { params: { page: trfPage, limit: LIMIT, sourceLocationId: location||undefined, startDate: start||undefined, endDate: end||undefined } });
+      return { data: r.data.data??[] as any[], meta: r.data.meta??{page:1,totalPages:1,total:0,limit:LIMIT} };
     },
-    enabled: activeTab === "transfers",
+    enabled: tab === "transfers",
   });
 
-  const { data: damagesData, isLoading: isLoadingDamages } = useQuery({
-    queryKey: [
-      "reports",
-      "damages",
-      dmgPage,
-      selectedLocation,
-      startDate,
-      endDate,
-    ],
+  // Damages
+  const { data: dmgData, isLoading: dmgLoad } = useQuery({
+    queryKey: ["rpt-dmg", dmgPage, location, start, end],
     queryFn: async () => {
-      const r = await apiClient.get<ApiResponse<any>>(
-        "/stocks/reports/damages",
-        {
-          params: {
-            page: dmgPage,
-            limit: LIMIT,
-            locationId: selectedLocation || undefined,
-            startDate: startDate || undefined,
-            endDate: endDate || undefined,
-          },
-        },
-      );
-      const p = r.data;
-      return {
-        data: (Array.isArray(p.data) ? p.data : []) as any[],
-        meta: p.meta ?? { page: 1, totalPages: 1, total: 0, limit: LIMIT },
-      };
+      const r = await apiClient.get<ApiResponse<any>>("/stocks/reports/damages", { params: { page: dmgPage, limit: LIMIT, locationId: location||undefined, startDate: start||undefined, endDate: end||undefined } });
+      return { data: r.data.data??[] as any[], meta: r.data.meta??{page:1,totalPages:1,total:0,limit:LIMIT} };
     },
-    enabled: activeTab === "damages",
+    enabled: tab === "damages",
   });
 
-  const { data: adjustmentsData, isLoading: isLoadingAdjustments } = useQuery({
-    queryKey: [
-      "reports",
-      "adjustments",
-      adjPage,
-      selectedLocation,
-      startDate,
-      endDate,
-    ],
+  // Adjustments
+  const { data: adjData, isLoading: adjLoad } = useQuery({
+    queryKey: ["rpt-adj", adjPage, location, start, end],
     queryFn: async () => {
-      const r = await apiClient.get<ApiResponse<any>>(
-        "/stocks/reports/adjustments",
-        {
-          params: {
-            page: adjPage,
-            limit: LIMIT,
-            locationId: selectedLocation || undefined,
-            startDate: startDate || undefined,
-            endDate: endDate || undefined,
-          },
-        },
-      );
-      const p = r.data;
-      return {
-        data: (Array.isArray(p.data) ? p.data : []) as any[],
-        meta: p.meta ?? { page: 1, totalPages: 1, total: 0, limit: LIMIT },
-      };
+      const r = await apiClient.get<ApiResponse<any>>("/stocks/reports/adjustments", { params: { page: adjPage, limit: LIMIT, locationId: location||undefined, startDate: start||undefined, endDate: end||undefined } });
+      return { data: r.data.data??[] as any[], meta: r.data.meta??{page:1,totalPages:1,total:0,limit:LIMIT} };
     },
-    enabled: activeTab === "adjustments",
+    enabled: tab === "adjustments",
   });
 
-  const { data: lowStockData, isLoading: isLoadingLowStock } = useQuery({
-    queryKey: ["reports", "lowstock", lstPage, selectedLocation],
+  // Low stock
+  const { data: lstData, isLoading: lstLoad } = useQuery({
+    queryKey: ["rpt-lst", lstPage, location],
     queryFn: async () => {
-      const r = await apiClient.get<ApiResponse<any>>(
-        "/stocks/low-stock-alerts",
-        {
-          params: {
-            page: lstPage,
-            limit: LIMIT,
-            locationId: selectedLocation || undefined,
-          },
-        },
-      );
-      const p = r.data;
-      return {
-        data: (Array.isArray(p.data) ? p.data : []) as any[],
-        meta: p.meta ?? { page: 1, totalPages: 1, total: 0, limit: LIMIT },
-      };
+      const r = await apiClient.get<ApiResponse<any>>("/stocks/low-stock-alerts", { params: { page: lstPage, limit: LIMIT, locationId: location||undefined } });
+      return { data: r.data.data??[] as any[], meta: r.data.meta??{page:1,totalPages:1,total:0,limit:LIMIT} };
     },
-    enabled: activeTab === "lowstock",
+    enabled: tab === "lowstock",
   });
 
-  const locName = (id: string) =>
-    locationsRes?.find((l: any) => l.id === id)?.name ?? id;
-
-  // ── PDF Export ────────────────────────────────────────────────────────────────
-  const exportPDF = async (tab: string) => {
-    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
-      import("jspdf"),
-      import("jspdf-autotable"),
-    ]);
-
-    const tabLabel: Record<string, string> = {
-      valuation: "Stock Valuation Report",
-      movements: "Stock Movement Ledger",
-      transfers: "Stock Transfer Report",
-      damages: "Damage / Waste Report",
-      adjustments: "Stock Adjustment Report",
-      lowstock: "Low Stock Alert Report",
+  // ── PDF export ───────────────────────────────────────────────────────────────
+  const exportPDF = async () => {
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+    const tabLabel: Record<string,string> = {
+      activity:"Detailed Activity Log", valuation:"Stock Valuation Report", movements:"Stock Movement Ledger",
+      transfers:"Stock Transfer Report", damages:"Damage & Waste Report", adjustments:"Stock Adjustment Report", lowstock:"Low Stock Alert Report",
     };
+    const doc = new jsPDF({ orientation:"landscape", unit:"mm", format:"a4" });
+    const pw = doc.internal.pageSize.getWidth();
+    const ph = doc.internal.pageSize.getHeight();
+    let y = 16;
 
-    const doc = new jsPDF({
-      orientation: "landscape",
-      unit: "mm",
-      format: "a4",
-    });
-    const pageW = doc.internal.pageSize.getWidth();
+    // Header block
+    doc.setFont("helvetica","bold"); doc.setFontSize(15);
+    doc.text("INVENTORY MANAGEMENT REPORT", 14, y); y += 8;
+    doc.setFontSize(11);
+    doc.text(tabLabel[tab] ?? "Report", 14, y); y += 7;
+    doc.setFont("helvetica","normal"); doc.setFontSize(8);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, y); y += 5;
+    if (start || end) { doc.text(`Period: ${start || "—"} to ${end || "—"}`, 14, y); y += 5; }
+    if (location) { const ln = locList.find((l:any)=>l.id===location)?.name ?? location; doc.text(`Location: ${ln}`, 14, y); y += 5; }
+    doc.setLineWidth(0.3); doc.line(14, y+1, pw-14, y+1); y += 5;
 
-    // ── Document header (Word-like plain style)
-    let y = 18;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text("INVENTORY MANAGEMENT REPORT", 14, y);
-    y += 8;
-    doc.setFontSize(12);
-    doc.text(tabLabel[tab] ?? "Report", 14, y);
-    y += 8;
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, y);
-    y += 5;
-    if (selectedLocation) {
-      doc.text(`Location Filter: ${locName(selectedLocation)}`, 14, y);
-      y += 5;
-    }
-    if (startDate) {
-      doc.text(`From: ${startDate}`, 14, y);
-      y += 5;
-    }
-    if (endDate) {
-      doc.text(`To:   ${endDate}`, 14, y);
-      y += 5;
-    }
-
-    // Divider line
-    doc.setLineWidth(0.4);
-    doc.line(14, y + 1, pageW - 14, y + 1);
-    y += 5;
-
-    // Plain black-and-white Word-like table style — no background colors
-    const tableDefaults = {
+    const tStyle = {
       startY: y,
-      styles: {
-        fontSize: 8,
-        cellPadding: 2.5,
-        textColor: [0, 0, 0] as [number, number, number],
-        fillColor: [255, 255, 255] as [number, number, number],
-        lineColor: [0, 0, 0] as [number, number, number],
-        lineWidth: 0.1,
-      },
-      headStyles: {
-        fillColor: [255, 255, 255] as [number, number, number],
-        textColor: [0, 0, 0] as [number, number, number],
-        fontStyle: "bold" as const,
-        lineColor: [0, 0, 0] as [number, number, number],
-        lineWidth: 0.3,
-      },
-      alternateRowStyles: {
-        fillColor: [255, 255, 255] as [number, number, number],
-      },
-      tableLineColor: [0, 0, 0] as [number, number, number],
-      tableLineWidth: 0.1,
+      styles: { fontSize:7.5, cellPadding:2, textColor:[0,0,0] as [number,number,number], fillColor:[255,255,255] as [number,number,number], lineColor:[0,0,0] as [number,number,number], lineWidth:0.1 },
+      headStyles: { fillColor:[255,255,255] as [number,number,number], textColor:[0,0,0] as [number,number,number], fontStyle:"bold" as const, lineWidth:0.25 },
+      alternateRowStyles: { fillColor:[248,248,248] as [number,number,number] },
+      tableLineColor:[0,0,0] as [number,number,number], tableLineWidth:0.1,
     };
 
-    if (tab === "valuation") {
-      const summary = valuationData?.summary;
-      const locList = valuationData?.locationBreakdown ?? [];
-      const prodList = valuationData?.productBreakdown ?? [];
-
-      // Summary box
-      if (summary) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(10);
-        doc.text("Summary", 14, tableDefaults.startY);
-        autoTable(doc, {
-          ...tableDefaults,
-          startY: tableDefaults.startY + 3,
-          head: [["Metric", "Value"]],
-          body: [
-            ["Total Unique Products", summary.totalUniqueProducts],
-            ["Total Physical Stock Qty", summary.totalPhysicalQuantity],
-            ["Total Reserved Qty", summary.totalReservedQuantity],
-            ["Total Cost Valuation (BDT)", fmt(summary.totalValueCost)],
-            ["Total Retail Valuation (BDT)", fmt(summary.totalValueRetail)],
-          ],
-          tableWidth: 110,
-        });
+    if (tab === "activity") {
+      const rows = actData?.data ?? [];
+      // Summary table first
+      const sum = actData?.summary;
+      if (sum) {
+        autoTable(doc, { ...tStyle, head:[["Total Transactions","Stock In (qty)","Stock Out (qty)","Net Change"]], body:[[sum.totalTransactions, sum.totalIn, sum.totalOut, (sum.totalIn - sum.totalOut)]], tableWidth:140 });
+        tStyle.startY = (doc as any).lastAutoTable.finalY + 6;
       }
-
-      const afterSummary = (doc as any).lastAutoTable?.finalY ?? y;
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.text("Location Breakdown", 14, afterSummary + 8);
-      autoTable(doc, {
-        ...tableDefaults,
-        startY: afterSummary + 12,
-        head: [
-          [
-            "Location",
-            "Code",
-            "Stock Qty",
-            "Reserved",
-            "Cost Value (BDT)",
-            "Retail Value (BDT)",
-          ],
-        ],
-        body: locList.map((l) => [
-          l.name,
-          l.code,
-          l.quantity,
-          l.reservedQty,
-          fmt(l.costValuation),
-          fmt(l.retailValuation),
-        ]),
+      autoTable(doc, { ...tStyle,
+        head:[["Date","Time","Activity","Product","SKU","Location","Prev Qty","Change","New Qty","Cost/Unit","Total Cost","Ref Type","Performed By","Notes"]],
+        body: rows.map((r:ActivityRow)=>[r.dateFormatted, r.timeFormatted, r.movementLabel, r.product.name, r.product.sku, r.location.name, r.previousQty, (r.quantityChanged>0?"+":"")+r.quantityChanged, r.currentQty, fmt(r.unitCost), fmt(r.totalCostImpact), r.referenceType, r.performedBy, r.notes]),
+        columnStyles:{ 3:{cellWidth:30}, 13:{cellWidth:25} },
       });
-
+    } else if (tab === "valuation") {
+      const s = valData?.summary;
+      if (s) {
+        autoTable(doc, { ...tStyle, head:[["Metric","Value"]], body:[["Total Unique Products",s.totalUniqueProducts],["Total Physical Qty",s.totalPhysicalQuantity],["Total Reserved Qty",s.totalReservedQuantity],["Cost Valuation (BDT)",fmt(s.totalValueCost)],["Retail Valuation (BDT)",fmt(s.totalValueRetail)]], tableWidth:120 });
+        tStyle.startY = (doc as any).lastAutoTable.finalY + 8;
+      }
+      autoTable(doc, { ...tStyle, head:[["Location","Code","Products","Stock Qty","Reserved","Cost (BDT)","Retail (BDT)"]], body:(valData?.locationBreakdown??[]).map((l)=>[l.name,l.code,l.distinctProducts,l.quantity,l.reservedQty,fmt(l.costValuation),fmt(l.retailValuation)]) });
       doc.addPage();
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.text("Product Breakdown", 14, 15);
-      autoTable(doc, {
-        ...tableDefaults,
-        startY: 20,
-        head: [
-          [
-            "Product Name",
-            "SKU",
-            "Total Qty",
-            "Reserved",
-            "Cost Value (BDT)",
-            "Retail Value (BDT)",
-            "Locations",
-          ],
-        ],
-        body: prodList.map((p) => [
-          p.productName,
-          p.sku ?? "—",
-          p.totalQty,
-          p.totalReserved,
-          fmt(p.costValuation),
-          fmt(p.retailValuation),
-          p.locationCount,
-        ]),
-      });
+      autoTable(doc, { ...tStyle, startY:16, head:[["Product","SKU","Total Qty","Reserved","Cost (BDT)","Retail (BDT)","Locations"]], body:(valData?.productBreakdown??[]).map((p)=>[p.productName,p.sku??"—",p.totalQty,p.totalReserved,fmt(p.costValuation),fmt(p.retailValuation),p.locationCount]) });
     } else if (tab === "movements") {
-      autoTable(doc, {
-        ...tableDefaults,
-        head: [
-          [
-            "Date",
-            "Product",
-            "SKU",
-            "Location",
-            "Movement Type",
-            "Qty Change",
-            "Performed By",
-          ],
-        ],
-        body: (movementsData?.data ?? []).map((m: any) => [
-          new Date(m.createdAt).toLocaleDateString(),
-          m.product?.name ?? "",
-          m.product?.sku ?? "-",
-          m.location?.name ?? "",
-          m.movementType ?? "",
-          m.quantityChanged > 0 ? `+${m.quantityChanged}` : m.quantityChanged,
-          m.performer?.email ?? "",
-        ]),
-      });
+      autoTable(doc, { ...tStyle, head:[["Date","Product","SKU","Location","Type","Change","Prev","New","Performed By","Notes"]], body:(movData?.data??[]).map((m:any)=>[new Date(m.createdAt).toLocaleDateString(),m.product?.name,m.product?.sku??"—",m.location?.name,MOV_LABEL[m.movementType]??m.movementType,(m.quantityChanged>0?"+":"")+m.quantityChanged,m.previousQuantity,m.currentQuantity,m.performer?.email??"—",m.notes??"—"]) });
     } else if (tab === "transfers") {
-      autoTable(doc, {
-        ...tableDefaults,
-        head: [
-          [
-            "Date",
-            "Transfer #",
-            "From Location",
-            "To Location",
-            "Status",
-            "Created By",
-          ],
-        ],
-        body: (transfersData?.data ?? []).map((t: any) => [
-          new Date(t.createdAt).toLocaleDateString(),
-          t.transferNumber ?? t.id?.slice(-8) ?? "",
-          t.sourceLocation?.name ?? "",
-          t.destinationLocation?.name ?? "",
-          t.status ?? "",
-          t.creator?.email ?? "",
-        ]),
-      });
+      autoTable(doc, { ...tStyle, head:[["Date","Transfer #","From","To","Status","Created By"]], body:(trfData?.data??[]).map((t:any)=>[new Date(t.createdAt).toLocaleDateString(),t.transferNumber??t.id?.slice(-8),t.sourceLocation?.name,t.destinationLocation?.name,t.status,t.creator?.email]) });
     } else if (tab === "damages") {
-      autoTable(doc, {
-        ...tableDefaults,
-        head: [
-          [
-            "Date",
-            "Reference #",
-            "Location",
-            "Status",
-            "Total Qty",
-            "Total Loss (BDT)",
-            "Created By",
-          ],
-        ],
-        body: (damagesData?.data ?? []).map((d: any) => [
-          new Date(d.createdAt).toLocaleDateString(),
-          d.damageNumber ?? d.id?.slice(-8) ?? "",
-          d.location?.name ?? "",
-          d.status ?? "",
-          (d.items ?? []).reduce(
-            (sum: number, item: any) => sum + (item.quantity || 0),
-            0,
-          ),
-          `BDT ${fmt(d.totalLossValuation ?? 0)}`,
-          d.creator?.email ?? "",
-        ]),
-      });
+      autoTable(doc, { ...tStyle, head:[["Date","Ref #","Location","Status","Total Qty","Loss (BDT)","Created By"]], body:(dmgData?.data??[]).map((d:any)=>[new Date(d.createdAt).toLocaleDateString(),d.damageNumber??d.id?.slice(-8),d.location?.name,d.status,(d.items??[]).reduce((s:number,i:any)=>s+(i.quantity||0),0),fmt(d.totalLossValuation),d.creator?.email]) });
     } else if (tab === "adjustments") {
-      autoTable(doc, {
-        ...tableDefaults,
-        head: [
-          [
-            "Date",
-            "Reference #",
-            "Location",
-            "Status",
-            "Reason",
-            "Added Qty",
-            "Removed Qty",
-            "Net Change",
-            "Created By",
-          ],
-        ],
-        body: (adjustmentsData?.data ?? []).map((a: any) => [
-          new Date(a.createdAt).toLocaleDateString(),
-          a.adjustmentNumber ?? "",
-          a.locationName ?? "",
-          a.status ?? "",
-          a.reason ?? "",
-          a.totalAdded ?? 0,
-          a.totalRemoved ?? 0,
-          (a.totalAdded ?? 0) - (a.totalRemoved ?? 0),
-          a.createdBy ?? "",
-        ]),
-      });
+      autoTable(doc, { ...tStyle, head:[["Date","Ref #","Location","Status","Reason","Added","Removed","Net","Created By"]], body:(adjData?.data??[]).map((a:any)=>[new Date(a.createdAt).toLocaleDateString(),a.adjustmentNumber,a.locationName,a.status,a.reason??"—",a.totalAdded??0,a.totalRemoved??0,(a.totalAdded??0)-(a.totalRemoved??0),a.createdBy]) });
     } else if (tab === "lowstock") {
-      autoTable(doc, {
-        ...tableDefaults,
-        head: [
-          [
-            "Product",
-            "SKU",
-            "Location",
-            "Current Qty",
-            "Min Threshold",
-            "Reorder Qty",
-            "Deficit",
-          ],
-        ],
-        body: (lowStockData?.data ?? []).map((l: any) => [
-          l.productName ?? "",
-          l.sku ?? "—",
-          l.locationName ?? "",
-          l.currentQuantity,
-          l.minimumQuantity,
-          l.reorderQuantity,
-          Math.max(0, l.minimumQuantity - l.currentQuantity),
-        ]),
-      });
+      autoTable(doc, { ...tStyle, head:[["Product","SKU","Location","Current Qty","Min Threshold","Reorder Qty","Deficit"]], body:(lstData?.data??[]).map((l:any)=>[l.productName,l.sku??"—",l.locationName,l.currentQuantity,l.minimumQuantity,l.reorderQuantity,Math.max(0,l.minimumQuantity-l.currentQuantity)]) });
     }
 
-    // Page numbers
-    const totalPages = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= totalPages; i++) {
-      doc.setPage(i);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7);
-      doc.setTextColor(150);
-      doc.text(
-        `Page ${i} of ${totalPages}`,
-        pageW - 14,
-        doc.internal.pageSize.getHeight() - 8,
-        { align: "right" },
-      );
-      doc.text(
-        "Inventory Management System",
-        14,
-        doc.internal.pageSize.getHeight() - 8,
-      );
+    const total = (doc as any).internal.getNumberOfPages();
+    for (let i=1;i<=total;i++) {
+      doc.setPage(i); doc.setFont("helvetica","normal"); doc.setFontSize(7); doc.setTextColor(130);
+      doc.text(`Page ${i} of ${total}`, pw-14, ph-6, {align:"right"});
+      doc.text("Inventory Management System", 14, ph-6);
       doc.setTextColor(0);
     }
-
-    doc.save(`inventory-${tab}-report-${todayStr()}.pdf`);
+    doc.save(`inventory-${tab}-${todayStr()}.pdf`);
   };
 
-  // ── Excel Export (HTML table format — x:str forces text, no #### on dates) ────
-  const exportExcel = (tab: string) => {
-    const filename = `inventory-${tab}-${todayStr()}`;
-    const fmtDate = (d: string) => new Date(d).toISOString().slice(0, 10); // YYYY-MM-DD
-    if (tab === "valuation") {
-      const locList = valuationData?.locationBreakdown ?? [];
-      downloadExcel(
-        filename,
-        [
-          "Location",
-          "Code",
-          "Stock Qty",
-          "Reserved Qty",
-          "Cost Valuation (BDT)",
-          "Retail Valuation (BDT)",
-        ],
-        locList.map((l) => [
-          l.name,
-          l.code,
-          l.quantity,
-          l.reservedQty,
-          l.costValuation,
-          l.retailValuation,
-        ]),
-      );
+  // ── Excel export ─────────────────────────────────────────────────────────────
+  const exportExcel = () => {
+    const fn = `inventory-${tab}-${todayStr()}`;
+    const fd = (d: string) => new Date(d).toISOString().slice(0, 10);
+    if (tab === "activity") {
+      downloadCSV(fn,
+        ["Date","Time","Activity","Direction","Product","SKU","Barcode","Location","Loc Code","Prev Qty","Change","New Qty","Cost/Unit (BDT)","Total Cost (BDT)","Ref Type","Ref ID","Performed By","Notes"],
+        (actData?.data ?? []).map((r: ActivityRow) => [r.dateFormatted, r.timeFormatted, r.movementLabel, r.direction, r.product.name, r.product.sku, r.product.barcodeId, r.location.name, r.location.code, r.previousQty, r.quantityChanged, r.currentQty, r.unitCost, r.totalCostImpact, r.referenceType, r.referenceId, r.performedBy, r.notes]),
+        [0]);
+    } else if (tab === "valuation") {
+      downloadCSV(fn,
+        ["Location","Code","Distinct Products","Stock Qty","Reserved Qty","Cost Valuation (BDT)","Retail Valuation (BDT)"],
+        (valData?.locationBreakdown ?? []).map((l) => [l.name, l.code, l.distinctProducts, l.quantity, l.reservedQty, l.costValuation, l.retailValuation]));
     } else if (tab === "movements") {
-      downloadExcel(
-        filename,
-        [
-          "Date",
-          "Product",
-          "SKU",
-          "Location",
-          "Movement Type",
-          "Qty Change",
-          "Performed By",
-        ],
-        (movementsData?.data ?? []).map((m: any) => [
-          fmtDate(m.createdAt),
-          m.product?.name,
-          m.product?.sku,
-          m.location?.name,
-          m.movementType,
-          m.quantityChanged,
-          m.performer?.email,
-        ]),
-        [0],
-      );
+      downloadCSV(fn,
+        ["Date","Product","SKU","Location","Movement Type","Prev Qty","Change","New Qty","Ref Type","Ref ID","Performed By","Notes"],
+        (movData?.data ?? []).map((m: any) => [fd(m.createdAt), m.product?.name, m.product?.sku ?? "—", m.location?.name, MOV_LABEL[m.movementType] ?? m.movementType, m.previousQuantity, m.quantityChanged, m.currentQuantity, m.referenceType, m.referenceId, m.performer?.email ?? "—", m.notes ?? "—"]),
+        [0]);
     } else if (tab === "transfers") {
-      downloadExcel(
-        filename,
-        ["Date", "Transfer #", "From", "To", "Status", "Created By"],
-        (transfersData?.data ?? []).map((t: any) => [
-          fmtDate(t.createdAt),
-          t.transferNumber ?? t.id,
-          t.sourceLocation?.name,
-          t.destinationLocation?.name,
-          t.status,
-          t.creator?.email,
-        ]),
-        [0],
-      );
+      downloadCSV(fn,
+        ["Date","Transfer #","From Location","To Location","Status","Transfer Date","Received Date","Created By"],
+        (trfData?.data ?? []).map((t: any) => [fd(t.createdAt), t.transferNumber ?? t.id, t.sourceLocation?.name, t.destinationLocation?.name, t.status, t.transferDate ? fd(t.transferDate) : "—", t.receivedDate ? fd(t.receivedDate) : "—", t.creator?.email]),
+        [0, 5, 6]);
     } else if (tab === "damages") {
-      downloadExcel(
-        filename,
-        [
-          "Date",
-          "Reference #",
-          "Location",
-          "Status",
-          "Total Qty",
-          "Total Loss (BDT)",
-          "Created By",
-        ],
-        (damagesData?.data ?? []).map((d: any) => [
-          fmtDate(d.createdAt),
-          d.damageNumber ?? d.id,
-          d.location?.name,
-          d.status,
-          (d.items ?? []).reduce(
-            (sum: number, item: any) => sum + (item.quantity || 0),
-            0,
-          ),
-          d.totalLossValuation,
-          d.creator?.email,
-        ]),
-        [0],
-      );
+      downloadCSV(fn,
+        ["Date","Ref #","Location","Status","Total Qty","Total Loss (BDT)","Created By"],
+        (dmgData?.data ?? []).map((d: any) => [fd(d.createdAt), d.damageNumber ?? d.id, d.location?.name, d.status, (d.items ?? []).reduce((s: number, i: any) => s + (i.quantity || 0), 0), d.totalLossValuation ?? 0, d.creator?.email]),
+        [0]);
     } else if (tab === "adjustments") {
-      downloadExcel(
-        filename,
-        [
-          "Date",
-          "Reference #",
-          "Location",
-          "Status",
-          "Reason",
-          "Added Qty",
-          "Removed Qty",
-          "Net Change",
-          "Created By",
-        ],
-        (adjustmentsData?.data ?? []).map((a: any) => [
-          fmtDate(a.createdAt),
-          a.adjustmentNumber,
-          a.locationName,
-          a.status,
-          a.reason,
-          a.totalAdded ?? 0,
-          a.totalRemoved ?? 0,
-          (a.totalAdded ?? 0) - (a.totalRemoved ?? 0),
-          a.createdBy,
-        ]),
-        [0],
-      );
+      downloadCSV(fn,
+        ["Date","Ref #","Location","Status","Reason","Added Qty","Removed Qty","Net Change","Created By"],
+        (adjData?.data ?? []).map((a: any) => [fd(a.createdAt), a.adjustmentNumber, a.locationName, a.status, a.reason ?? "—", a.totalAdded ?? 0, a.totalRemoved ?? 0, (a.totalAdded ?? 0) - (a.totalRemoved ?? 0), a.createdBy]),
+        [0]);
     } else if (tab === "lowstock") {
-      downloadExcel(
-        filename,
-        [
-          "Product",
-          "SKU",
-          "Location",
-          "Current Qty",
-          "Min Threshold",
-          "Reorder Qty",
-          "Deficit",
-        ],
-        (lowStockData?.data ?? []).map((l: any) => [
-          l.productName,
-          l.sku,
-          l.locationName,
-          l.currentQuantity,
-          l.minimumQuantity,
-          l.reorderQuantity,
-          Math.max(0, l.minimumQuantity - l.currentQuantity),
-        ]),
-      );
+      downloadCSV(fn,
+        ["Product","SKU","Location","Current Qty","Min Threshold","Reorder Qty","Deficit"],
+        (lstData?.data ?? []).map((l: any) => [l.productName, l.sku ?? "—", l.locationName, l.currentQuantity, l.minimumQuantity, l.reorderQuantity, Math.max(0, l.minimumQuantity - l.currentQuantity)]));
     }
   };
 
-  // ── Reusable: empty state ─────────────────────────────────────────────────────
-  const EmptyState = ({ icon: Icon, text }: { icon: any; text: string }) => (
-    <div className="p-16 text-center text-slate-400">
-      <Icon className="h-10 w-10 mx-auto mb-3 text-slate-200" />
-      <p className="text-sm font-medium">{text}</p>
-    </div>
-  );
-
-  // ── Reusable: pagination row ──────────────────────────────────────────────────
-  const PagRow = ({
-    meta,
-    onChange,
-  }: {
-    meta: any;
-    onChange: (p: number) => void;
-  }) =>
+  // ── shared sub-components ─────────────────────────────────────────────────────
+  const Spinner = () => <div className="p-16 text-center text-slate-400 text-sm">Loading…</div>;
+  const Empty = ({ text }: { text: string }) => <div className="p-16 text-center text-slate-400 text-sm">{text}</div>;
+  const Pager = ({ meta, set }: { meta: any; set: (p: number) => void }) =>
     meta?.totalPages > 1 ? (
-      <div className="p-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-        <span>
-          Page {meta.page} of {meta.totalPages} &mdash; {meta.total} records
-        </span>
-        <PaginationControl
-          currentPage={meta.page}
-          totalPages={meta.totalPages}
-          onPageChange={onChange}
-        />
+      <div className="p-4 border-t flex items-center justify-between text-xs text-slate-500">
+        <span>Page {meta.page} of {meta.totalPages} — {meta.total} records</span>
+        <PaginationControl currentPage={meta.page} totalPages={meta.totalPages} onPageChange={set} />
       </div>
     ) : null;
 
-  // ── Reusable: export buttons ────────────────────────────────────────────
-  const ExportBar = ({ tab }: { tab: string }) => (
-    <div className="flex gap-2">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => exportExcel(tab)}
-        className="text-xs rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 gap-1.5"
-      >
-        📊 Excel
-      </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => exportPDF(tab)}
-        className="text-xs rounded-xl border-slate-200 text-slate-600 hover:bg-slate-50 gap-1.5"
-      >
-        <LuPrinter className="h-3.5 w-3.5" /> PDF
-      </Button>
+  // ── filter bar helper ─────────────────────────────────────────────────────────
+  const Sel = ({ label, value, onChange, opts }: { label: string; value: string; onChange: (v: string) => void; opts: { value: string; label: string }[] }) => (
+    <div>
+      <p className="text-xs font-semibold text-slate-500 mb-1">{label}</p>
+      <select value={value} onChange={e => onChange(e.target.value)} className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm h-9 rounded-lg px-3 outline-none focus:ring-1 focus:ring-slate-300">
+        {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </div>
+  );
+  const DateF = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
+    <div>
+      <p className="text-xs font-semibold text-slate-500 mb-1">{label}</p>
+      <input type="date" value={value} onChange={e => onChange(e.target.value)} className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm h-9 rounded-lg px-3 outline-none focus:ring-1 focus:ring-slate-300" />
     </div>
   );
 
+  const locOpts = [{ value: "", label: "All Locations" }, ...locList.map((l: any) => ({ value: l.id, label: l.name }))];
+  const movTypeOpts = [
+    { value: "", label: "All Types" },
+    { value: "PURCHASE", label: "Stock Received (GRN)" },
+    { value: "SALE", label: "Stock Sold (POS)" },
+    { value: "CUSTOMER_RETURN", label: "Customer Return" },
+    { value: "SUPPLIER_RETURN", label: "Supplier Return" },
+    { value: "TRANSFER_IN", label: "Transfer In" },
+    { value: "TRANSFER_OUT", label: "Transfer Out" },
+    { value: "ADJUSTMENT_IN", label: "Adjustment (+)" },
+    { value: "ADJUSTMENT_OUT", label: "Adjustment (-)" },
+    { value: "DAMAGE", label: "Damage / Waste" },
+    { value: "EXPIRED", label: "Expired Write-off" },
+  ];
+
   // ── JSX ───────────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+    <div className="space-y-5 p-1">
+      {/* Page header */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between bg-white px-6 py-5 rounded-2xl border border-slate-100 shadow-sm">
         <div>
-          <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-            <LuFileSpreadsheet className="h-6 w-6 text-emerald-600" />
+          <h1 className="text-xl font-bold text-slate-800">
             Inventory Reports
           </h1>
-          <p className="text-xs text-slate-500">
-            Valuation, movements, transfers, damages, adjustments and low-stock
-            — export as Excel or PDF.
-          </p>
+          <p className="text-xs text-slate-500 mt-0.5">Detailed activity log, valuation, movements, transfers, damages, adjustments and low-stock.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={exportExcel} className="text-xs gap-1.5 rounded-xl border-slate-200">
+            Excel
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportPDF} className="text-xs gap-1.5 rounded-xl border-slate-200">
+            <LuPrinter className="h-3.5 w-3.5" /> PDF
+          </Button>
         </div>
       </div>
 
       {/* Filters */}
       <Card className="p-4 border-slate-100 shadow-sm">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-          <div>
-            <label className="text-xs font-semibold text-slate-500 mb-1 block">
-              Location
-            </label>
-            <select
-              value={selectedLocation}
-              onChange={(e) => setSelectedLocation(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm h-10 rounded-xl outline-none px-3"
-            >
-              <option value="">All Locations</option>
-              {locationsRes?.map((loc: any) => (
-                <option key={loc.id} value={loc.id}>
-                  {loc.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-500 mb-1 block">
-              Start Date
-            </label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm h-10 rounded-xl outline-none px-3"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-slate-500 mb-1 block">
-              End Date
-            </label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-sm h-10 rounded-xl outline-none px-3"
-            />
-          </div>
-          <div className="flex items-end">
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-xl text-xs border-slate-200"
-              onClick={() => {
-                setSelectedLocation("");
-                setStartDate("");
-                setEndDate("");
-              }}
-            >
-              Clear Filters
-            </Button>
-          </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
+          <Sel label="Location" value={location} onChange={v => { setLocation(v); setActPage(1); setMovPage(1); }} opts={locOpts} />
+          <DateF label="From Date" value={start} onChange={v => { setStart(v); setActPage(1); setMovPage(1); }} />
+          <DateF label="To Date" value={end} onChange={v => { setEnd(v); setActPage(1); setMovPage(1); }} />
+          {(tab === "activity" || tab === "movements") && (
+            <Sel label="Event Type" value={movType} onChange={v => { setMovType(v); setActPage(1); setMovPage(1); }} opts={movTypeOpts} />
+          )}
+          {tab === "activity" && (
+            <div className="col-span-2">
+              <p className="text-xs font-semibold text-slate-500 mb-1">Search Product / Notes</p>
+              <input value={search} onChange={e => { setSearch(e.target.value); setActPage(1); }} placeholder="Product name, SKU, notes…" className="w-full bg-slate-50 border border-slate-200 text-sm h-9 rounded-lg px-3 outline-none focus:ring-1 focus:ring-slate-300" />
+            </div>
+          )}
         </div>
       </Card>
 
       {/* Tabs */}
-      <Tabs
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="w-full space-y-4"
-      >
-        <TabsList className="bg-slate-100 p-1 rounded-xl border border-slate-200 flex-wrap gap-1 h-auto">
-          {[
-            { value: "valuation", label: "Valuation", icon: LuDollarSign },
-            { value: "movements", label: "Movements", icon: LuActivity },
-            { value: "transfers", label: "Transfers", icon: LuArrowLeftRight },
-            { value: "damages", label: "Damages", icon: LuOctagonAlert },
-            {
-              value: "adjustments",
-              label: "Adjustments",
-              icon: LuSlidersHorizontal,
-            },
-            { value: "lowstock", label: "Low Stock", icon: LuTriangleAlert },
-          ].map(({ value, label, icon: Icon }) => (
-            <TabsTrigger
-              key={value}
-              value={value}
-              className="rounded-lg text-xs py-2 px-3 flex items-center gap-1.5"
-            >
-              <Icon className="h-3.5 w-3.5" /> {label}
-            </TabsTrigger>
-          ))}
+      <Tabs value={tab} onValueChange={v => setTab(v)}>
+        <TabsList className="flex-wrap h-auto gap-1 bg-slate-100 p-1 rounded-xl">
+          <TabsTrigger value="activity" className="rounded-lg text-xs">Activity Log</TabsTrigger>
+          <TabsTrigger value="valuation" className="rounded-lg text-xs">Valuation</TabsTrigger>
+          <TabsTrigger value="movements" className="rounded-lg text-xs">Ledger</TabsTrigger>
+          <TabsTrigger value="transfers" className="rounded-lg text-xs">Transfers</TabsTrigger>
+          <TabsTrigger value="damages" className="rounded-lg text-xs">Damages</TabsTrigger>
+          <TabsTrigger value="adjustments" className="rounded-lg text-xs">Adjustments</TabsTrigger>
+          <TabsTrigger value="lowstock" className="rounded-lg text-xs">Low Stock</TabsTrigger>
         </TabsList>
 
-        {/* ── Tab 1: Stock Valuation ──────────────────────────────────────────── */}
-        <TabsContent value="valuation" className="space-y-4 outline-none">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-700">
-              Stock Valuation Report
-            </h2>
-            <ExportBar tab="valuation" />
-          </div>
-
-          {isLoadingValuation ? (
-            <div className="flex h-64 items-center justify-center">
-              <Loader />
-            </div>
-          ) : (
-            <>
-              {/* KPI cards */}
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        {/* ── Activity Log ─────────────────────────────────────────────────────── */}
+        <TabsContent value="activity">
+          <Card className="border-slate-100 shadow-sm overflow-hidden">
+            {actData?.summary && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-px border-b border-slate-100 bg-slate-100">
                 {[
-                  {
-                    label: "Unique Products",
-                    value: valuationData?.summary?.totalUniqueProducts ?? 0,
-                    icon: LuPackage,
-                    color: "bg-blue-50 text-blue-600",
-                  },
-                  {
-                    label: "Total Stock Qty",
-                    value: (
-                      valuationData?.summary?.totalPhysicalQuantity ?? 0
-                    ).toLocaleString(),
-                    icon: LuActivity,
-                    color: "bg-violet-50 text-violet-600",
-                  },
-                  {
-                    label: "Reserved Qty",
-                    value: (
-                      valuationData?.summary?.totalReservedQuantity ?? 0
-                    ).toLocaleString(),
-                    icon: LuPackage,
-                    color: "bg-orange-50 text-orange-600",
-                  },
-                  {
-                    label: "Cost Value (BDT)",
-                    value: `BDT ${fmt(valuationData?.summary?.totalValueCost)}`,
-                    icon: LuDollarSign,
-                    color: "bg-emerald-50 text-emerald-600",
-                  },
-                  {
-                    label: "Retail Value (BDT)",
-                    value: `BDT ${fmt(valuationData?.summary?.totalValueRetail)}`,
-                    icon: LuTrendingUp,
-                    color: "bg-indigo-50 text-indigo-600",
-                  },
-                ].map(({ label, value, icon: Icon, color }) => (
-                  <Card
-                    key={label}
-                    className="p-4 border-slate-100 shadow-sm flex items-center justify-between"
-                  >
-                    <div>
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">
-                        {label}
-                      </p>
-                      <p className="text-lg font-bold text-slate-900 mt-0.5">
-                        {value}
-                      </p>
-                    </div>
-                    <div className={`p-2.5 rounded-xl ${color}`}>
-                      <Icon className="h-4 w-4" />
-                    </div>
-                  </Card>
+                  { label: "Total Transactions", val: actData.summary.totalTransactions, color: "text-slate-800" },
+                  { label: "Total Stock IN", val: `+${actData.summary.totalIn} qty`, color: "text-emerald-700" },
+                  { label: "Total Stock OUT", val: `-${actData.summary.totalOut} qty`, color: "text-rose-700" },
+                  { label: "Net Change", val: (actData.summary.netChange >= 0 ? "+" : "") + actData.summary.netChange + " qty", color: actData.summary.netChange >= 0 ? "text-emerald-700" : "text-rose-700" },
+                ].map(({ label, val, color }) => (
+                  <div key={label} className="bg-white px-5 py-4">
+                    <p className="text-xs text-slate-500 mb-1">{label}</p>
+                    <p className={`text-lg font-bold ${color}`}>{val}</p>
+                  </div>
                 ))}
               </div>
+            )}
+            {actLoad ? <Spinner /> : !actData?.data?.length ? <Empty text="No activity found for the selected filters." /> : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      {["Date","Time","Activity","Direction","Product","SKU","Location","Prev Qty","Change","New Qty","Cost/Unit","Total Cost","Ref Type","Performed By","Notes"].map(h => (
+                        <th key={h} className="px-3 py-2.5 text-left font-semibold text-slate-600 whitespace-nowrap border-b border-slate-200">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {actData.data.map((r: ActivityRow, i: number) => (
+                      <tr key={r.id} className={i % 2 === 0 ? "bg-white" : "bg-slate-50/60"}>
+                        <td className="px-3 py-2 whitespace-nowrap font-medium text-slate-700">{r.dateFormatted}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-slate-500">{r.timeFormatted}</td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <span className="font-medium text-slate-800">{r.movementLabel}</span>
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${DIRECTION_COLOR[r.direction]}`}>
+                            {r.direction === "IN" ? "▲ IN" : "▼ OUT"}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 max-w-[160px] truncate font-medium text-slate-800" title={r.product.name}>{r.product.name}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-slate-500">{r.product.sku}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-slate-600">{r.location.name}</td>
+                        <td className="px-3 py-2 text-center text-slate-500">{r.previousQty}</td>
+                        <td className={`px-3 py-2 text-center font-bold ${r.quantityChanged > 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                          {r.quantityChanged > 0 ? `+${r.quantityChanged}` : r.quantityChanged}
+                        </td>
+                        <td className="px-3 py-2 text-center font-semibold text-slate-800">{r.currentQty}</td>
+                        <td className="px-3 py-2 text-right text-slate-600">{fmt(r.unitCost)}</td>
+                        <td className={`px-3 py-2 text-right font-semibold ${r.direction === "OUT" ? "text-rose-700" : "text-emerald-700"}`}>{fmt(r.totalCostImpact)}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-slate-500">{r.referenceType}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-slate-500">{r.performedBy}</td>
+                        <td className="px-3 py-2 max-w-[180px] truncate text-slate-400" title={r.notes}>{r.notes}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <Pager meta={actData?.meta} set={setActPage} />
+          </Card>
+        </TabsContent>
 
-              {/* Location table */}
-              <Card className="border-slate-100 shadow-sm overflow-hidden">
-                <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
-                    Location Breakdown
-                  </p>
+        {/* ── Valuation ─────────────────────────────────────────────────────────── */}
+        <TabsContent value="valuation">
+          <div className="space-y-4">
+            {valLoad ? <Card className="border-slate-100"><Spinner /></Card> : <>
+              {valData?.summary && (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-px bg-slate-100 rounded-xl overflow-hidden border border-slate-100">
+                  {[
+                    { l: "Unique Products", v: valData.summary.totalUniqueProducts },
+                    { l: "Physical Qty", v: valData.summary.totalPhysicalQuantity },
+                    { l: "Reserved Qty", v: valData.summary.totalReservedQuantity },
+                    { l: "Cost Value (BDT)", v: fmt(valData.summary.totalValueCost) },
+                    { l: "Retail Value (BDT)", v: fmt(valData.summary.totalValueRetail) },
+                  ].map(({ l, v }) => (
+                    <div key={l} className="bg-white px-5 py-4">
+                      <p className="text-xs text-slate-500">{l}</p>
+                      <p className="text-lg font-bold text-slate-800 mt-0.5">{v}</p>
+                    </div>
+                  ))}
                 </div>
+              )}
+              <Card className="border-slate-100 shadow-sm overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 text-xs font-semibold text-slate-600 uppercase tracking-wide">Location Breakdown</div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold uppercase">
+                  <table className="w-full text-xs border-collapse">
+                    <thead className="bg-slate-50 border-b">
                       <tr>
-                        <th className="p-3">Location</th>
-                        <th className="p-3">Code</th>
-                        <th className="p-3 text-center">Stock Qty</th>
-                        <th className="p-3 text-center">Reserved</th>
-                        <th className="p-3 text-right">Cost Value (BDT)</th>
-                        <th className="p-3 text-right">Retail Value (BDT)</th>
+                        <th className="px-4 py-2.5 text-left font-semibold text-slate-600 min-w-[140px]">Location</th>
+                        <th className="px-4 py-2.5 text-left font-semibold text-slate-600 whitespace-nowrap">Code</th>
+                        <th className="px-4 py-2.5 text-right font-semibold text-slate-600 whitespace-nowrap">Distinct Products</th>
+                        <th className="px-4 py-2.5 text-right font-semibold text-slate-600 whitespace-nowrap">Stock Qty</th>
+                        <th className="px-4 py-2.5 text-right font-semibold text-slate-600 whitespace-nowrap">Reserved Qty</th>
+                        <th className="px-4 py-2.5 text-right font-semibold text-slate-600 whitespace-nowrap">Cost Value (BDT)</th>
+                        <th className="px-4 py-2.5 text-right font-semibold text-slate-600 whitespace-nowrap">Retail Value (BDT)</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-700">
-                      {(valuationData?.locationBreakdown ?? []).length === 0 ? (
-                        <tr>
-                          <td
-                            colSpan={6}
-                            className="p-10 text-center text-slate-400"
-                          >
-                            No data
-                          </td>
+                    <tbody>
+                      {(valData?.locationBreakdown ?? []).map((l, i) => (
+                        <tr key={l.code} className={i%2===0?"bg-white":"bg-slate-50/60"}>
+                          <td className="px-4 py-2 font-medium text-slate-800 min-w-[140px] wrap-break-word">{l.name}</td>
+                          <td className="px-4 py-2 text-slate-500 whitespace-nowrap">{l.code}</td>
+                          <td className="px-4 py-2 text-right">{l.distinctProducts}</td>
+                          <td className="px-4 py-2 text-right font-semibold text-slate-800">{l.quantity}</td>
+                          <td className="px-4 py-2 text-right text-slate-500">{l.reservedQty}</td>
+                          <td className="px-4 py-2 text-right font-medium">{fmt(l.costValuation)}</td>
+                          <td className="px-4 py-2 text-right font-medium text-emerald-700">{fmt(l.retailValuation)}</td>
                         </tr>
-                      ) : (
-                        (valuationData?.locationBreakdown ?? []).map(
-                          (item, i) => (
-                            <tr
-                              key={i}
-                              className="hover:bg-slate-50 transition-colors"
-                            >
-                              <td className="p-3 font-semibold text-slate-900">
-                                {item.name}
-                              </td>
-                              <td className="p-3 font-mono text-slate-500">
-                                {item.code}
-                              </td>
-                              <td className="p-3 text-center font-semibold">
-                                {item.quantity}
-                              </td>
-                              <td className="p-3 text-center text-slate-400">
-                                {item.reservedQty}
-                              </td>
-                              <td className="p-3 text-right font-bold text-slate-900">
-                                {fmt(item.costValuation)}
-                              </td>
-                              <td className="p-3 text-right font-bold text-indigo-600">
-                                {fmt(item.retailValuation)}
-                              </td>
-                            </tr>
-                          ),
-                        )
-                      )}
+                      ))}
                     </tbody>
                   </table>
                 </div>
               </Card>
-
-              {/* Product table */}
               <Card className="border-slate-100 shadow-sm overflow-hidden">
-                <div className="px-4 py-3 border-b border-slate-100">
-                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
-                    Product Breakdown
-                  </p>
-                </div>
+                <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 text-xs font-semibold text-slate-600 uppercase tracking-wide">Product Breakdown</div>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold uppercase">
+                  <table className="w-full text-xs border-collapse">
+                    <thead className="bg-slate-50 border-b">
                       <tr>
-                        <th className="p-3">Product</th>
-                        <th className="p-3">SKU</th>
-                        <th className="p-3 text-center">Total Qty</th>
-                        <th className="p-3 text-center">Reserved</th>
-                        <th className="p-3 text-right">Cost Value (BDT)</th>
-                        <th className="p-3 text-right">Retail Value (BDT)</th>
-                        <th className="p-3 text-center">Locations</th>
+                        <th className="px-4 py-2.5 text-left font-semibold text-slate-600 min-w-[160px]">Product</th>
+                        <th className="px-4 py-2.5 text-left font-semibold text-slate-600 whitespace-nowrap">SKU</th>
+                        <th className="px-4 py-2.5 text-right font-semibold text-slate-600 whitespace-nowrap">Total Qty</th>
+                        <th className="px-4 py-2.5 text-right font-semibold text-slate-600 whitespace-nowrap">Reserved</th>
+                        <th className="px-4 py-2.5 text-right font-semibold text-slate-600 whitespace-nowrap">Cost Value (BDT)</th>
+                        <th className="px-4 py-2.5 text-right font-semibold text-slate-600 whitespace-nowrap">Retail Value (BDT)</th>
+                        <th className="px-4 py-2.5 text-right font-semibold text-slate-600 whitespace-nowrap">Locations</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-700">
-                      {(valuationData?.productBreakdown ?? []).length === 0 ? (
-                        <tr>
-                          <td
-                            colSpan={7}
-                            className="p-10 text-center text-slate-400"
-                          >
-                            No data
-                          </td>
+                    <tbody>
+                      {(valData?.productBreakdown ?? []).map((p, i) => (
+                        <tr key={p.productId} className={i%2===0?"bg-white":"bg-slate-50/60"}>
+                          <td className="px-4 py-2 font-medium text-slate-800 min-w-[160px] wrap-break-word">{p.productName}</td>
+                          <td className="px-4 py-2 text-slate-500 whitespace-nowrap">{p.sku ?? "—"}</td>
+                          <td className="px-4 py-2 text-right font-semibold">{p.totalQty}</td>
+                          <td className="px-4 py-2 text-right text-slate-500">{p.totalReserved}</td>
+                          <td className="px-4 py-2 text-right">{fmt(p.costValuation)}</td>
+                          <td className="px-4 py-2 text-right font-medium text-emerald-700">{fmt(p.retailValuation)}</td>
+                          <td className="px-4 py-2 text-right text-slate-500">{p.locationCount}</td>
                         </tr>
-                      ) : (
-                        (valuationData?.productBreakdown ?? []).map(
-                          (item, i) => (
-                            <tr
-                              key={i}
-                              className="hover:bg-slate-50 transition-colors"
-                            >
-                              <td className="p-3 font-semibold text-slate-900">
-                                {item.productName}
-                              </td>
-                              <td className="p-3 font-mono text-slate-400">
-                                {item.sku ?? (
-                                  <span className="italic text-slate-300">
-                                    —
-                                  </span>
-                                )}
-                              </td>
-                              <td className="p-3 text-center font-semibold">
-                                {item.totalQty}
-                              </td>
-                              <td className="p-3 text-center text-slate-400">
-                                {item.totalReserved}
-                              </td>
-                              <td className="p-3 text-right font-bold text-slate-900">
-                                {fmt(item.costValuation)}
-                              </td>
-                              <td className="p-3 text-right font-bold text-indigo-600">
-                                {fmt(item.retailValuation)}
-                              </td>
-                              <td className="p-3 text-center text-slate-500">
-                                {item.locationCount}
-                              </td>
-                            </tr>
-                          ),
-                        )
-                      )}
+                      ))}
                     </tbody>
                   </table>
                 </div>
               </Card>
-            </>
-          )}
+            </>}
+          </div>
         </TabsContent>
 
-        {/* ── Tab 2: Movements ───────────────────────────────────────────────── */}
-        <TabsContent value="movements" className="space-y-4 outline-none">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-700">
-              Stock Movement Ledger
-            </h2>
-            <ExportBar tab="movements" />
-          </div>
+        {/* ── Raw Ledger ────────────────────────────────────────────────────────── */}
+        <TabsContent value="movements">
           <Card className="border-slate-100 shadow-sm overflow-hidden">
-            {isLoadingMovements ? (
-              <div className="flex h-64 items-center justify-center">
-                <Loader />
-              </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold uppercase">
-                      <tr>
-                        <th className="p-3">Date &amp; Time</th>
-                        <th className="p-3">Product</th>
-                        <th className="p-3">SKU</th>
-                        <th className="p-3">Location</th>
-                        <th className="p-3">Type</th>
-                        <th className="p-3 text-center">Qty Change</th>
-                        <th className="p-3">Performed By</th>
+            {movLoad ? <Spinner /> : !movData?.data?.length ? <Empty text="No movements found." /> : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead className="bg-slate-50 border-b">
+                    <tr>{["Date & Time","Product","SKU","Location","Movement Type","Prev Qty","Change","New Qty","Ref Type","Performed By","Notes"].map(h=><th key={h} className="px-3 py-2.5 text-left font-semibold text-slate-600 whitespace-nowrap">{h}</th>)}</tr>
+                  </thead>
+                  <tbody>
+                    {(movData.data ?? []).map((m: any, i: number) => (
+                      <tr key={m.id} className={i%2===0?"bg-white":"bg-slate-50/60"}>
+                        <td className="px-3 py-2 whitespace-nowrap text-slate-600">{new Date(m.createdAt).toLocaleString()}</td>
+                        <td className="px-3 py-2 font-medium text-slate-800 max-w-[150px] truncate">{m.product?.name}</td>
+                        <td className="px-3 py-2 text-slate-500">{m.product?.sku ?? "—"}</td>
+                        <td className="px-3 py-2 whitespace-nowrap text-slate-600">{m.location?.name}</td>
+                        <td className="px-3 py-2 whitespace-nowrap"><span className="font-medium">{MOV_LABEL[m.movementType] ?? m.movementType}</span></td>
+                        <td className="px-3 py-2 text-center text-slate-500">{m.previousQuantity}</td>
+                        <td className={`px-3 py-2 text-center font-bold ${m.quantityChanged > 0 ? "text-emerald-700" : "text-rose-700"}`}>{m.quantityChanged > 0 ? `+${m.quantityChanged}` : m.quantityChanged}</td>
+                        <td className="px-3 py-2 text-center font-semibold text-slate-800">{m.currentQuantity}</td>
+                        <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{m.referenceType}</td>
+                        <td className="px-3 py-2 text-slate-500">{m.performer?.email ?? "—"}</td>
+                        <td className="px-3 py-2 text-slate-400 max-w-[140px] truncate">{m.notes ?? "—"}</td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-700">
-                      {(movementsData?.data ?? []).length === 0 ? (
-                        <tr>
-                          <td colSpan={6}>
-                            <EmptyState
-                              icon={LuActivity}
-                              text="No movement records found."
-                            />
-                          </td>
-                        </tr>
-                      ) : (
-                        (movementsData?.data ?? []).map((m: any) => (
-                          <tr
-                            key={m.id}
-                            className="hover:bg-slate-50 transition-colors"
-                          >
-                            <td className="p-3 text-slate-500 whitespace-nowrap">
-                              {new Date(m.createdAt).toLocaleDateString()}
-                              <br />
-                              <span className="text-[10px] text-slate-300">
-                                {new Date(m.createdAt).toLocaleTimeString()}
-                              </span>
-                            </td>
-                            <td className="p-3 font-semibold text-slate-900">
-                              {m.product?.name ?? "—"}
-                            </td>
-                            <td className="p-3 font-mono text-slate-400">
-                              {m.product?.sku ?? "—"}
-                            </td>
-                            <td className="p-3">{m.location?.name ?? "—"}</td>
-                            <td className="p-3">
-                              <Badge
-                                className={`text-[10px] px-2 py-0.5 font-semibold rounded-full ${movTypeColor[m.movementType] ?? "bg-slate-100 text-slate-600"}`}
-                              >
-                                {m.movementType}
-                              </Badge>
-                            </td>
-                            <td className="p-3 text-center font-bold">
-                              <span
-                                className={
-                                  m.quantityChanged > 0
-                                    ? "text-green-600"
-                                    : "text-red-500"
-                                }
-                              >
-                                {m.quantityChanged > 0
-                                  ? `+${m.quantityChanged}`
-                                  : m.quantityChanged}
-                              </span>
-                            </td>
-                            <td className="p-3 text-slate-500">
-                              {m.performer?.email ?? "—"}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-                <PagRow meta={movementsData?.meta} onChange={setMovPage} />
-              </>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
+            <Pager meta={movData?.meta} set={setMovPage} />
           </Card>
         </TabsContent>
 
-        {/* ── Tab 3: Transfers ───────────────────────────────────────────────── */}
-        <TabsContent value="transfers" className="space-y-4 outline-none">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-700">
-              Stock Transfer Report
-            </h2>
-            <ExportBar tab="transfers" />
-          </div>
+        {/* ── Transfers ─────────────────────────────────────────────────────────── */}
+        <TabsContent value="transfers">
           <Card className="border-slate-100 shadow-sm overflow-hidden">
-            {isLoadingTransfers ? (
-              <div className="flex h-64 items-center justify-center">
-                <Loader />
-              </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold uppercase">
-                      <tr>
-                        <th className="p-3">Date</th>
-                        <th className="p-3">Transfer #</th>
-                        <th className="p-3">From</th>
-                        <th className="p-3">To</th>
-                        <th className="p-3 text-center">Status</th>
-                        <th className="p-3">Created By</th>
+            {trfLoad ? <Spinner /> : !trfData?.data?.length ? <Empty text="No transfers found." /> : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead className="bg-slate-50 border-b"><tr>{["Date","Transfer #","From Location","To Location","Status","Transfer Date","Received Date","Created By"].map(h=><th key={h} className="px-3 py-2.5 text-left font-semibold text-slate-600 whitespace-nowrap">{h}</th>)}</tr></thead>
+                  <tbody>
+                    {(trfData.data ?? []).map((t: any, i: number) => (
+                      <tr key={t.id} className={i%2===0?"bg-white":"bg-slate-50/60"}>
+                        <td className="px-3 py-2 whitespace-nowrap text-slate-600">{new Date(t.createdAt).toLocaleDateString()}</td>
+                        <td className="px-3 py-2 font-mono text-slate-700">{t.transferNumber ?? t.id?.slice(-8)}</td>
+                        <td className="px-3 py-2 text-slate-700">{t.sourceLocation?.name}</td>
+                        <td className="px-3 py-2 text-slate-700">{t.destinationLocation?.name}</td>
+                        <td className="px-3 py-2"><span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">{t.status}</span></td>
+                        <td className="px-3 py-2 text-slate-500">{t.transferDate ? new Date(t.transferDate).toLocaleDateString() : "—"}</td>
+                        <td className="px-3 py-2 text-slate-500">{t.receivedDate ? new Date(t.receivedDate).toLocaleDateString() : "—"}</td>
+                        <td className="px-3 py-2 text-slate-500">{t.creator?.email}</td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-700">
-                      {(transfersData?.data ?? []).length === 0 ? (
-                        <tr>
-                          <td colSpan={6}>
-                            <EmptyState
-                              icon={LuArrowLeftRight}
-                              text="No transfer records found."
-                            />
-                          </td>
-                        </tr>
-                      ) : (
-                        (transfersData?.data ?? []).map((t: any) => (
-                          <tr
-                            key={t.id}
-                            className="hover:bg-slate-50 transition-colors"
-                          >
-                            <td className="p-3 text-slate-500">
-                              {new Date(t.createdAt).toLocaleDateString()}
-                            </td>
-                            <td className="p-3 font-mono font-semibold text-slate-700">
-                              {t.transferNumber ?? t.id?.slice(-8)}
-                            </td>
-                            <td className="p-3">
-                              {t.sourceLocation?.name ?? "—"}
-                            </td>
-                            <td className="p-3">
-                              {t.destinationLocation?.name ?? "—"}
-                            </td>
-                            <td className="p-3 text-center">
-                              <Badge
-                                className={`text-[10px] px-2 py-0.5 rounded-full ${statusColor[t.status] ?? "bg-slate-100 text-slate-600"}`}
-                              >
-                                {t.status}
-                              </Badge>
-                            </td>
-                            <td className="p-3 text-slate-500">
-                              {t.creator?.email ?? "—"}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-                <PagRow meta={transfersData?.meta} onChange={setTrfPage} />
-              </>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
+            <Pager meta={trfData?.meta} set={setTrfPage} />
           </Card>
         </TabsContent>
 
-        {/* ── Tab 4: Damages ─────────────────────────────────────────────────── */}
-        <TabsContent value="damages" className="space-y-4 outline-none">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-700">
-              Damage / Waste Report
-            </h2>
-            <ExportBar tab="damages" />
-          </div>
+        {/* ── Damages ───────────────────────────────────────────────────────────── */}
+        <TabsContent value="damages">
           <Card className="border-slate-100 shadow-sm overflow-hidden">
-            {isLoadingDamages ? (
-              <div className="flex h-64 items-center justify-center">
-                <Loader />
-              </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold uppercase">
-                      <tr>
-                        <th className="p-3">Date</th>
-                        <th className="p-3">Reference #</th>
-                        <th className="p-3">Location</th>
-                        <th className="p-3 text-center">Status</th>
-                        <th className="p-3 text-center">Total Qty</th>
-                        <th className="p-3 text-right">Total Loss (BDT)</th>
-                        <th className="p-3">Created By</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-700">
-                      {(damagesData?.data ?? []).length === 0 ? (
-                        <tr>
-                          <td colSpan={7}>
-                            <EmptyState
-                              icon={LuOctagonAlert}
-                              text="No damage records found."
-                            />
-                          </td>
+            {dmgLoad ? <Spinner /> : !dmgData?.data?.length ? <Empty text="No damage records found." /> : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead className="bg-slate-50 border-b">
+                    <tr>
+                      <th className="px-3 py-2.5 text-left font-semibold text-slate-600 whitespace-nowrap">Date</th>
+                      <th className="px-3 py-2.5 text-left font-semibold text-slate-600 whitespace-nowrap">Ref #</th>
+                      <th className="px-3 py-2.5 text-left font-semibold text-slate-600 min-w-[120px]">Location</th>
+                      <th className="px-3 py-2.5 text-left font-semibold text-slate-600 whitespace-nowrap">Status</th>
+                      <th className="px-3 py-2.5 text-left font-semibold text-slate-600 min-w-[160px]">Products</th>
+                      <th className="px-3 py-2.5 text-right font-semibold text-slate-600 whitespace-nowrap">Total Qty</th>
+                      <th className="px-3 py-2.5 text-right font-semibold text-slate-600 whitespace-nowrap">Total Loss (BDT)</th>
+                      <th className="px-3 py-2.5 text-left font-semibold text-slate-600 whitespace-nowrap">Created By</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(dmgData.data ?? []).map((d: any, i: number) => {
+                      const totalQty = (d.items ?? []).reduce((s: number, item: any) => s + (item.quantity || 0), 0);
+                      return (
+                        <tr key={d.id} className={i%2===0?"bg-white":"bg-slate-50/60"}>
+                          <td className="px-3 py-2 whitespace-nowrap text-slate-600">{new Date(d.createdAt).toLocaleDateString()}</td>
+                          <td className="px-3 py-2 font-mono text-slate-700">{d.damageNumber ?? d.id?.slice(-8)}</td>
+                          <td className="px-3 py-2 text-slate-700 min-w-[120px]">{d.location?.name}</td>
+                          <td className="px-3 py-2"><span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700">{d.status}</span></td>
+                          <td className="px-3 py-2 text-slate-500 min-w-[160px]">{(d.items ?? []).map((item: any) => item.product?.name).join(", ") || "—"}</td>
+                          <td className="px-3 py-2 text-right font-semibold text-rose-700">{totalQty}</td>
+                          <td className="px-3 py-2 text-right font-semibold text-rose-700">{fmt(d.totalLossValuation)}</td>
+                          <td className="px-3 py-2 text-slate-500">{d.creator?.email}</td>
                         </tr>
-                      ) : (
-                        (damagesData?.data ?? []).map((d: any) => (
-                          <tr
-                            key={d.id}
-                            className="hover:bg-slate-50 transition-colors"
-                          >
-                            <td className="p-3 text-slate-500">
-                              {new Date(d.createdAt).toLocaleDateString()}
-                            </td>
-                            <td className="p-3 font-mono font-semibold text-slate-700">
-                              {d.damageNumber ?? d.id?.slice(-8)}
-                            </td>
-                            <td className="p-3">{d.location?.name ?? "—"}</td>
-                            <td className="p-3 text-center">
-                              <Badge
-                                className={`text-[10px] px-2 py-0.5 rounded-full ${statusColor[d.status] ?? "bg-slate-100 text-slate-600"}`}
-                              >
-                                {d.status}
-                              </Badge>
-                            </td>
-                            <td className="p-3 text-center font-semibold text-slate-700">
-                              {(d.items ?? []).reduce(
-                                (sum: number, item: any) =>
-                                  sum + (item.quantity || 0),
-                                0,
-                              )}
-                            </td>
-                            <td className="p-3 text-right font-bold text-red-600">
-                              BDT {fmt(d.totalLossValuation ?? 0)}
-                            </td>
-                            <td className="p-3 text-slate-500">
-                              {d.creator?.email ?? "—"}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-                <PagRow meta={damagesData?.meta} onChange={setDmgPage} />
-              </>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
+            <Pager meta={dmgData?.meta} set={setDmgPage} />
           </Card>
         </TabsContent>
 
-        {/* ── Tab 5: Adjustments ─────────────────────────────────────────────── */}
-        <TabsContent value="adjustments" className="space-y-4 outline-none">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-700">
-              Stock Adjustment Report
-            </h2>
-            <ExportBar tab="adjustments" />
-          </div>
+        {/* ── Adjustments ────────────────────────────────────────────────────────── */}
+        <TabsContent value="adjustments">
           <Card className="border-slate-100 shadow-sm overflow-hidden">
-            {isLoadingAdjustments ? (
-              <div className="flex h-64 items-center justify-center">
-                <Loader />
-              </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold uppercase">
-                      <tr>
-                        <th className="p-3">Date</th>
-                        <th className="p-3">Reference #</th>
-                        <th className="p-3">Location</th>
-                        <th className="p-3 text-center">Status</th>
-                        <th className="p-3">Reason</th>
-                        <th className="p-3 text-center">Added Qty</th>
-                        <th className="p-3 text-center">Removed Qty</th>
-                        <th className="p-3 text-center">Net Change</th>
-                        <th className="p-3">Created By</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-700">
-                      {(adjustmentsData?.data ?? []).length === 0 ? (
-                        <tr>
-                          <td colSpan={8}>
-                            <EmptyState
-                              icon={LuSlidersHorizontal}
-                              text="No adjustment records found."
-                            />
-                          </td>
+            {adjLoad ? <Spinner /> : !adjData?.data?.length ? <Empty text="No adjustment records found." /> : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead className="bg-slate-50 border-b"><tr>{["Date","Ref #","Location","Status","Reason","Added","Removed","Net Change","Items","Created By"].map(h=><th key={h} className="px-3 py-2.5 text-left font-semibold text-slate-600 whitespace-nowrap">{h}</th>)}</tr></thead>
+                  <tbody>
+                    {(adjData.data ?? []).map((a: any, i: number) => {
+                      const net = (a.totalAdded ?? 0) - (a.totalRemoved ?? 0);
+                      return (
+                        <tr key={a.id} className={i%2===0?"bg-white":"bg-slate-50/60"}>
+                          <td className="px-3 py-2 whitespace-nowrap text-slate-600">{new Date(a.createdAt).toLocaleDateString()}</td>
+                          <td className="px-3 py-2 font-mono text-slate-700">{a.adjustmentNumber}</td>
+                          <td className="px-3 py-2 text-slate-700">{a.locationName}</td>
+                          <td className="px-3 py-2"><span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-50 text-blue-700">{a.status}</span></td>
+                          <td className="px-3 py-2 text-slate-500">{a.reason ?? "—"}</td>
+                          <td className="px-3 py-2 text-center font-semibold text-emerald-700">{a.totalAdded ?? 0}</td>
+                          <td className="px-3 py-2 text-center font-semibold text-rose-700">{a.totalRemoved ?? 0}</td>
+                          <td className={`px-3 py-2 text-center font-bold ${net >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{net >= 0 ? `+${net}` : net}</td>
+                          <td className="px-3 py-2 text-center text-slate-500">{a.totalItemLines}</td>
+                          <td className="px-3 py-2 text-slate-500">{a.createdBy}</td>
                         </tr>
-                      ) : (
-                        (adjustmentsData?.data ?? []).map((a: any) => (
-                          <tr
-                            key={a.id}
-                            className="hover:bg-slate-50 transition-colors"
-                          >
-                            <td className="p-3 text-slate-500">
-                              {new Date(a.createdAt).toLocaleDateString()}
-                            </td>
-                            <td className="p-3 font-mono font-semibold text-slate-700">
-                              {a.adjustmentNumber ?? "—"}
-                            </td>
-                            <td className="p-3">{a.locationName ?? "—"}</td>
-                            <td className="p-3 text-center">
-                              <Badge
-                                className={`text-[10px] px-2 py-0.5 rounded-full ${statusColor[a.status] ?? "bg-slate-100 text-slate-600"}`}
-                              >
-                                {a.status}
-                              </Badge>
-                            </td>
-                            <td className="p-3 text-slate-500 truncate max-w-[120px]">
-                              {a.reason ?? "—"}
-                            </td>
-                            <td className="p-3 text-center font-bold text-green-600">
-                              {a.totalAdded > 0 ? `+${a.totalAdded}` : "—"}
-                            </td>
-                            <td className="p-3 text-center font-bold text-red-500">
-                              {a.totalRemoved > 0 ? `-${a.totalRemoved}` : "—"}
-                            </td>
-                            <td className="p-3 text-center font-semibold text-slate-700">
-                              {(a.totalAdded ?? 0) - (a.totalRemoved ?? 0) > 0
-                                ? `+${(a.totalAdded ?? 0) - (a.totalRemoved ?? 0)}`
-                                : (a.totalAdded ?? 0) - (a.totalRemoved ?? 0)}
-                            </td>
-                            <td className="p-3 text-slate-500">
-                              {a.createdBy ?? "—"}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-                <PagRow meta={adjustmentsData?.meta} onChange={setAdjPage} />
-              </>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
+            <Pager meta={adjData?.meta} set={setAdjPage} />
           </Card>
         </TabsContent>
 
-        {/* ── Tab 6: Low Stock ───────────────────────────────────────────────── */}
-        <TabsContent value="lowstock" className="space-y-4 outline-none">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-slate-700">
-              Low Stock Alert Report
-            </h2>
-            <ExportBar tab="lowstock" />
-          </div>
+        {/* ── Low Stock ─────────────────────────────────────────────────────────── */}
+        <TabsContent value="lowstock">
           <Card className="border-slate-100 shadow-sm overflow-hidden">
-            {isLoadingLowStock ? (
-              <div className="flex h-64 items-center justify-center">
-                <Loader />
-              </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold uppercase">
-                      <tr>
-                        <th className="p-3">Product</th>
-                        <th className="p-3">SKU</th>
-                        <th className="p-3">Location</th>
-                        <th className="p-3 text-center">Current Qty</th>
-                        <th className="p-3 text-center">Min Threshold</th>
-                        <th className="p-3 text-center">Reorder Qty</th>
-                        <th className="p-3 text-center">Deficit</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-700">
-                      {(lowStockData?.data ?? []).length === 0 ? (
-                        <tr>
-                          <td colSpan={7}>
-                            <EmptyState
-                              icon={LuTriangleAlert}
-                              text="All stock levels are within safe thresholds."
-                            />
-                          </td>
+            {lstLoad ? <Spinner /> : !lstData?.data?.length ? <Empty text="No low-stock products found." /> : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs border-collapse">
+                  <thead className="bg-slate-50 border-b"><tr>{["Product","SKU","Location","Current Qty","Min Threshold","Reorder Qty","Deficit"].map(h=><th key={h} className="px-3 py-2.5 text-left font-semibold text-slate-600 whitespace-nowrap">{h}</th>)}</tr></thead>
+                  <tbody>
+                    {(lstData.data ?? []).map((l: any, i: number) => {
+                      const deficit = Math.max(0, l.minimumQuantity - l.currentQuantity);
+                      return (
+                        <tr key={`${l.productId}-${l.locationId}`} className={i%2===0?"bg-white":"bg-slate-50/60"}>
+                          <td className="px-3 py-2 font-medium text-slate-800">{l.productName}</td>
+                          <td className="px-3 py-2 text-slate-500">{l.sku ?? "—"}</td>
+                          <td className="px-3 py-2 text-slate-600">{l.locationName}</td>
+                          <td className="px-3 py-2 text-center font-bold text-rose-700">{l.currentQuantity}</td>
+                          <td className="px-3 py-2 text-center text-slate-500">{l.minimumQuantity}</td>
+                          <td className="px-3 py-2 text-center text-blue-700 font-semibold">{l.reorderQuantity}</td>
+                          <td className="px-3 py-2 text-center font-bold text-amber-700">{deficit}</td>
                         </tr>
-                      ) : (
-                        (lowStockData?.data ?? []).map(
-                          (item: any, i: number) => {
-                            const deficit =
-                              item.minimumQuantity - item.currentQuantity;
-                            return (
-                              <tr
-                                key={i}
-                                className="hover:bg-slate-50 transition-colors"
-                              >
-                                <td className="p-3 font-semibold text-slate-900">
-                                  {item.productName}
-                                </td>
-                                <td className="p-3 font-mono text-slate-400">
-                                  {item.sku ?? (
-                                    <span className="italic text-slate-300">
-                                      —
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="p-3">{item.locationName}</td>
-                                <td className="p-3 text-center font-bold text-red-600">
-                                  {item.currentQuantity}
-                                </td>
-                                <td className="p-3 text-center text-slate-500">
-                                  {item.minimumQuantity}
-                                </td>
-                                <td className="p-3 text-center">
-                                  <span className="bg-indigo-50 text-indigo-600 font-bold px-2 py-0.5 rounded-lg">
-                                    {item.reorderQuantity}
-                                  </span>
-                                </td>
-                                <td className="p-3 text-center font-bold">
-                                  {deficit > 0 ? (
-                                    <span className="text-red-600">
-                                      -{deficit}
-                                    </span>
-                                  ) : (
-                                    <span className="text-amber-500">0</span>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          },
-                        )
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-                <PagRow meta={lowStockData?.meta} onChange={setLstPage} />
-              </>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
+            <Pager meta={lstData?.meta} set={setLstPage} />
           </Card>
         </TabsContent>
+
       </Tabs>
     </div>
   );

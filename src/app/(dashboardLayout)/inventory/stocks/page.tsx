@@ -341,15 +341,15 @@ export default function LocationStocksPage() {
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 font-semibold text-xs uppercase">
                   <th className="p-4">Product</th>
-                  <th className="p-4">SKU</th>
+                  <th className="p-4 hidden sm:table-cell">SKU</th>
                   <th className="p-4">Location</th>
                   <th className="p-4 text-center">Physical Qty</th>
-                  <th className="p-4 text-center">Reserved</th>
+                  <th className="p-4 text-center hidden md:table-cell">Reserved</th>
                   <th className="p-4 text-center">Available</th>
-                  <th className="p-4 text-right">Cost / Unit</th>
-                  <th className="p-4 text-right">Total Value</th>
+                  <th className="p-4 text-right hidden lg:table-cell">Cost / Unit</th>
+                  <th className="p-4 text-right hidden lg:table-cell">Total Value</th>
                   <th className="p-4 text-center">Status</th>
-                  <th className="p-4 text-center">Config</th>
+                  <th className="p-4 text-center hidden sm:table-cell">Config</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
@@ -368,7 +368,7 @@ export default function LocationStocksPage() {
                           {item.product?.name}
                         </div>
                       </td>
-                      <td className="p-4 font-mono text-xs text-slate-500">
+                      <td className="p-4 font-mono text-xs text-slate-500 hidden sm:table-cell">
                         {item.product?.sku}
                       </td>
                       <td className="p-4 text-slate-700">
@@ -380,22 +380,22 @@ export default function LocationStocksPage() {
                       <td className="p-4 text-center font-semibold text-slate-900">
                         {item.quantity}
                       </td>
-                      <td className="p-4 text-center text-slate-400">
+                      <td className="p-4 text-center text-slate-400 hidden md:table-cell">
                         {item.reservedQuantity}
                       </td>
                       <td className="p-4 text-center font-bold text-indigo-600">
                         {available}
                       </td>
-                      <td className="p-4 text-right text-slate-600">
+                      <td className="p-4 text-right text-slate-600 hidden lg:table-cell">
                         ${unitCost.toFixed(2)}
                       </td>
-                      <td className="p-4 text-right font-semibold text-slate-800">
+                      <td className="p-4 text-right font-semibold text-slate-800 hidden lg:table-cell">
                         ${totalValue.toFixed(2)}
                       </td>
                       <td className="p-4 text-center">
                         {getStatusBadge(available)}
                       </td>
-                      <td className="p-4 text-center">
+                      <td className="p-4 text-center hidden sm:table-cell">
                         <Button
                           variant="ghost"
                           onClick={() => handleOpenConfig(item)}

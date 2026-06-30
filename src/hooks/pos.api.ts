@@ -187,8 +187,8 @@ export const posKeys = {
   all: ["pos"] as const,
   products: (searchTerm?: string, storeId?: string) =>
     [...posKeys.all, "products", searchTerm, storeId] as const,
-  bills: (page: number, limit: number) =>
-    [...posKeys.all, "bills", page, limit] as const,
+  bills: (page: number, limit: number, searchTerm?: string, paymentStatus?: string) =>
+    [...posKeys.all, "bills", page, limit, searchTerm, paymentStatus] as const,
   bill: (orderId: string) => [...posKeys.all, "bill", orderId] as const,
 };
 
@@ -219,13 +219,21 @@ export const usePosProducts = (searchTerm?: string, storeId?: string) => {
   });
 };
 
-export const usePosBills = (page: number, limit = 10) => {
+export const usePosBills = (
+  page: number,
+  limit = 10,
+  searchTerm?: string,
+  paymentStatus?: "PAID" | "PENDING" | "DUE"
+) => {
   return useQuery<{ data: PosBillSummary[]; meta: PosBillListMeta }>({
-    queryKey: posKeys.bills(page, limit),
+    queryKey: posKeys.bills(page, limit, searchTerm, paymentStatus),
     queryFn: async () => {
+      const params: Record<string, any> = { page, limit };
+      if (searchTerm) params.searchTerm = searchTerm;
+      if (paymentStatus) params.paymentStatus = paymentStatus;
       const response = await apiClient.get<ApiResponse<PosBillSummary[]>>(
         PosRoutes.getBills,
-        { params: { page, limit } },
+        { params },
       );
       const bills = ensurePayload(response.data, "Failed to load bills");
       const meta = normalizeMeta(response.data.meta, page, limit, bills.length);

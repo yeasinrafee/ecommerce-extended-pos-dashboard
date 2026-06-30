@@ -21,12 +21,58 @@ const productStatusOptions = [
   { label: "Inactive", value: "INACTIVE" },
 ];
 
-const stockStatusOptions = [
-  { label: "In Stock", value: "IN_STOCK" },
-  { label: "Low Stock", value: "LOW_STOCK" },
-  { label: "Out of Stock", value: "OUT_OF_STOCK" },
-];
+/* ─────────────────────────────────────────────────────────────────────────────
+   Read-only stock status badge — derived automatically from stock quantity.
+   No user interaction allowed: status is always server-computed.
+───────────────────────────────────────────────────────────────────────────── */
+function StockStatusBadge({ row }: { row: any }) {
+  const actual = row.stock ?? 0;
+  const target = row.defaultQuantity ?? 0;
+  const isPending = actual === 0 && target > 0;
 
+  if (isPending) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border bg-orange-50 text-orange-700 border-orange-200 whitespace-nowrap">
+        <span className="size-1.5 rounded-full bg-orange-400 inline-block" />
+        Pending (GRN)
+      </span>
+    );
+  }
+
+  switch (row.stockStatus) {
+    case "IN_STOCK":
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border bg-blue-50 text-blue-700 border-blue-200 whitespace-nowrap">
+          <span className="size-1.5 rounded-full bg-blue-500 inline-block" />
+          In Stock
+        </span>
+      );
+    case "LOW_STOCK":
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border bg-amber-50 text-amber-700 border-amber-200 whitespace-nowrap">
+          <span className="size-1.5 rounded-full bg-amber-400 inline-block" />
+          Low Stock
+        </span>
+      );
+    case "OUT_OF_STOCK":
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border bg-rose-50 text-rose-700 border-rose-200 whitespace-nowrap">
+          <span className="size-1.5 rounded-full bg-rose-500 inline-block" />
+          Out of Stock
+        </span>
+      );
+    default:
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full border bg-slate-50 text-slate-500 border-slate-200 whitespace-nowrap">
+          Unknown
+        </span>
+      );
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Main component
+───────────────────────────────────────────────────────────────────────────── */
 const ManageProduct: React.FC = () => {
   const router = useRouter();
   const [page, setPage] = React.useState(1);
@@ -38,12 +84,8 @@ const ManageProduct: React.FC = () => {
   const [barcodeInput, setBarcodeInput] = React.useState("");
   const [barcodeId, setBarcodeId] = React.useState<string | undefined>(undefined);
 
-  // Hydration guard state
   const [mounted, setMounted] = React.useState(false);
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
+  React.useEffect(() => { setMounted(true); }, []);
 
   React.useEffect(() => {
     const handle = setTimeout(() => {
@@ -53,7 +95,6 @@ const ManageProduct: React.FC = () => {
     return () => clearTimeout(handle);
   }, [searchInput]);
 
-  // Debounce barcode search — only pass digits to backend
   React.useEffect(() => {
     const digitsOnly = barcodeInput.replace(/\D/g, "");
     const handle = setTimeout(() => {
@@ -74,81 +115,45 @@ const ManageProduct: React.FC = () => {
   const selectedIds = React.useMemo(() => Object.keys(selected).filter((k) => selected[k]), [selected]);
 
   const [bulkStatus, setBulkStatus] = React.useState("");
-  const [bulkStockStatus, setBulkStockStatus] = React.useState("");
-  const bulkStatusForm = useForm<{ status: string; stockStatus: string }>({ defaultValues: { status: "", stockStatus: "" } });
+  const bulkStatusForm = useForm<{ status: string }>({ defaultValues: { status: "" } });
 
-  const toggleSelect = (id: string) => {
-    setSelected((s) => ({ ...s, [id]: !s[id] }));
-  };
-
+  const toggleSelect = (id: string) => setSelected((s) => ({ ...s, [id]: !s[id] }));
   const selectAllOnPage = () => {
-    const newSel: Record<string, boolean> = { ...selected };
-    products.forEach((p: any) => { newSel[p.id] = true; });
-    setSelected(newSel);
+    const next: Record<string, boolean> = { ...selected };
+    products.forEach((p: any) => { next[p.id] = true; });
+    setSelected(next);
   };
-
   const clearSelection = () => setSelected({});
 
   const applyBulkUpdate = () => {
-    if (selectedIds.length === 0) return;
-    const payload: { ids: string[]; status?: string; stockStatus?: string } = { ids: selectedIds };
-    if (bulkStatus) payload.status = bulkStatus;
-    if (bulkStockStatus) payload.stockStatus = bulkStockStatus;
-    bulkPatchMutation.mutate(payload, { onSuccess: () => clearSelection() });
+    if (selectedIds.length === 0 || !bulkStatus) return;
+    bulkPatchMutation.mutate({ ids: selectedIds, status: bulkStatus }, { onSuccess: () => clearSelection() });
   };
 
   const [deleteTarget, setDeleteTarget] = React.useState<any | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = React.useState(false);
   const deleteMutation = useDeleteProduct();
 
-  const handleEdit = (item: any) => {
-    router.push(`/dashboard/product/edit?id=${item.id}`);
-  };
-
-  const handleDelete = (item: any) => {
-    setDeleteTarget(item);
-    setDeleteModalOpen(true);
-  };
-
+  const handleEdit = (item: any) => router.push(`/dashboard/product/edit?id=${item.id}`);
+  const handleDelete = (item: any) => { setDeleteTarget(item); setDeleteModalOpen(true); };
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     try {
       await deleteMutation.mutateAsync(deleteTarget.id);
       setDeleteModalOpen(false);
       setDeleteTarget(null);
-    } catch {
-    }
+    } catch { /* handled by mutation */ }
   };
 
   const handleInlineStatusChange = (id: string, status: string) => {
     patchMutation.mutate({ id, payload: { status } });
   };
 
-  const handleInlineStockStatusChange = (id: string, stockStatus: string) => {
-    patchMutation.mutate({ id, payload: { stockStatus } });
-  };
-
   const getStatusClassName = (status: string) => {
     switch (status) {
-      case "ACTIVE":
-        return "bg-emerald-50 text-emerald-700 border-emerald-200 focus:ring-emerald-500 font-medium";
-      case "INACTIVE":
-        return "bg-slate-100 text-slate-600 border-slate-200 focus:ring-slate-400";
-      default:
-        return "bg-background";
-    }
-  };
-
-  const getStockClassName = (stockStatus: string) => {
-    switch (stockStatus) {
-      case "IN_STOCK":
-        return "bg-blue-50 text-blue-700 border-blue-200 focus:ring-blue-500 font-medium";
-      case "LOW_STOCK":
-        return "bg-amber-50 text-amber-700 border-amber-200 focus:ring-amber-500 font-medium";
-      case "OUT_OF_STOCK":
-        return "bg-rose-50 text-rose-700 border-rose-200 focus:ring-rose-500 font-medium";
-      default:
-        return "bg-background";
+      case "ACTIVE":  return "bg-emerald-50 text-emerald-700 border-emerald-200 focus:ring-emerald-500 font-medium";
+      case "INACTIVE": return "bg-slate-100 text-slate-600 border-slate-200 focus:ring-slate-400";
+      default: return "bg-background";
     }
   };
 
@@ -161,10 +166,7 @@ const ManageProduct: React.FC = () => {
               type="checkbox"
               className="w-4 h-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer accent-slate-800"
               checked={products.length > 0 && products.every((p: any) => selected[p.id])}
-              onChange={(e) => {
-                if (e.target.checked) selectAllOnPage();
-                else clearSelection();
-              }}
+              onChange={(e) => e.target.checked ? selectAllOnPage() : clearSelection()}
             />
           </div>
         ),
@@ -182,30 +184,26 @@ const ManageProduct: React.FC = () => {
       },
       {
         header: "Image",
-        cell: (row) =>
-          row.image ? (
-            <div className="relative size-12 rounded-lg overflow-hidden border border-slate-100 bg-slate-50">
-              <Image src={row.image} alt={row.name || ""} fill className="object-cover" />
-            </div>
-          ) : (
-            <div className="size-12 rounded-lg bg-slate-100 flex items-center justify-center text-xs text-slate-400">No Img</div>
-          ),
+        cell: (row) => row.image ? (
+          <div className="relative size-12 rounded-lg overflow-hidden border border-slate-100 bg-slate-50">
+            <Image src={row.image} alt={row.name || ""} fill className="object-cover" />
+          </div>
+        ) : (
+          <div className="size-12 rounded-lg bg-slate-100 flex items-center justify-center text-xs text-slate-400">No Img</div>
+        ),
       },
-      { 
-        header: "Name", 
-        cell: (row) => <span className="font-medium text-slate-800 line-clamp-2 max-w-[200px]">{row.name}</span> 
+      {
+        header: "Name",
+        cell: (row) => <span className="font-medium text-slate-800 line-clamp-2 max-w-[200px]">{row.name}</span>
       },
       { header: "Brand", cell: (row) => <span className="text-slate-600 font-medium">{row.brand?.name || "-"}</span> },
       {
         header: "Categories",
         cell: (row) => {
-          if (!row.categories || !row.categories.length) return <span className="text-slate-400">-</span>;
+          if (!row.categories?.length) return <span className="text-slate-400">-</span>;
           return (
             <div className="truncate w-32 text-slate-500 text-sm">
-              {row.categories
-                .map((c: any) => c.category?.name || "")
-                .filter((n: string) => !!n)
-                .join(" • ")}
+              {row.categories.map((c: any) => c.category?.name || "").filter(Boolean).join(" • ")}
             </div>
           );
         },
@@ -224,45 +222,55 @@ const ManageProduct: React.FC = () => {
       },
       {
         header: "Stock Status",
-        cell: (row) => (
-          <InlineSelect
-            value={row.stockStatus || ""}
-            options={stockStatusOptions}
-            placeholder="Stock Status"
-            onChange={(v) => handleInlineStockStatusChange(row.id, v)}
-            triggerClassName={`w-36 h-9 text-xs rounded-full border transition-all ${getStockClassName(row.stockStatus)}`}
-          />
-        ),
+        cell: (row) => <StockStatusBadge row={row} />,
       },
-      { 
-        header: "Price", 
-        cell: (row) => (row.finalPrice != null ? <span className="font-semibold text-slate-900">${row.finalPrice}</span> : <span className="text-slate-400">-</span>) 
+      {
+        header: "Price",
+        cell: (row) => row.finalPrice != null
+          ? <span className="font-semibold text-slate-900">${row.finalPrice}</span>
+          : <span className="text-slate-400">-</span>
       },
-      { 
-        header: "Stock", 
-        cell: (row) => <span className="font-medium text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md text-xs">{row.stock ?? 0} pcs</span> 
+      {
+        header: "Stock",
+        cell: (row) => {
+          const actual = row.stock ?? 0;
+          const target = row.defaultQuantity ?? 0;
+          const isPending = actual === 0 && target > 0;
+          if (isPending) {
+            return (
+              <span className="font-medium text-orange-600 bg-orange-50 border border-orange-200 px-2.5 py-1 rounded-md text-xs">
+                {target} pcs (pending)
+              </span>
+            );
+          }
+          return (
+            <span className="font-medium text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md text-xs">
+              {actual} pcs
+            </span>
+          );
+        },
       },
     ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [products, selected]
   );
 
-  // Render skeletal loader on server side to prevent dynamic component ID mismatch
-  if (!mounted) {
-    return <TableSkeleton />;
-  }
+  if (!mounted) return <TableSkeleton />;
 
   return (
     <div className="p-6 bg-white rounded-xl">
       <div className="mb-6">
         <h2 className="text-xl font-semibold text-slate-800 tracking-tight">Manage Products</h2>
-        <p className="text-sm text-slate-500 mt-0.5">Update product details, inventories and tracking status.</p>
+        <p className="text-sm text-slate-500 mt-0.5">
+          Stock status is updated automatically by inventory — it cannot be changed manually.
+        </p>
       </div>
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
         <SearchBar searchInput={searchInput} setSearchInput={setSearchInput} clearSearch={() => setSearchInput("")} />
 
         <div className="flex flex-wrap items-center gap-3">
-          {/* Barcode search — accepts manual input or a physical barcode scanner */}
+          {/* Barcode search */}
           <div className="relative">
             <input
               type="text"
@@ -279,9 +287,7 @@ const ManageProduct: React.FC = () => {
                 onClick={() => setBarcodeInput("")}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                 aria-label="Clear barcode search"
-              >
-                ✕
-              </button>
+              >✕</button>
             ) : (
               <BiBarcodeReader
                 className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400"
@@ -296,6 +302,8 @@ const ManageProduct: React.FC = () => {
               {selectedIds.length} Selected
             </span>
           )}
+
+          {/* Bulk status — Active/Inactive only; stockStatus is server-managed */}
           <CustomSelect
             name="status"
             control={bulkStatusForm.control}
@@ -306,23 +314,13 @@ const ManageProduct: React.FC = () => {
             placeholder="Bulk Status"
             triggerClassName="w-36 h-10 bg-white border-slate-200 rounded-lg text-sm"
           />
-          <CustomSelect
-            name="stockStatus"
-            control={bulkStatusForm.control}
-            options={stockStatusOptions}
-            valueToField={(v) => v}
-            fieldToValue={(v) => v}
-            onChangeCallback={(v: string) => setBulkStockStatus(v)}
-            placeholder="Bulk Stock"
-            triggerClassName="w-40 h-10 bg-white border-slate-200 rounded-lg text-sm"
-          />
           <CustomButton
-            disabled={selectedIds.length === 0 || (!bulkStatus && !bulkStockStatus)}
+            disabled={selectedIds.length === 0 || !bulkStatus}
             onClick={applyBulkUpdate}
             loading={bulkPatchMutation.isPending}
             className="h-10 rounded-lg font-medium px-4 transition-all"
           >
-            Apply Action
+            Apply
           </CustomButton>
         </div>
       </div>
@@ -361,7 +359,7 @@ const ManageProduct: React.FC = () => {
         open={deleteModalOpen}
         onOpenChange={setDeleteModalOpen}
         title="Confirm deletion"
-        description={deleteTarget ? `Are you sure you want to delete product "${deleteTarget.name}"? This action cannot be undone.` : undefined}
+        description={deleteTarget ? `Are you sure you want to delete "${deleteTarget.name}"? This cannot be undone.` : undefined}
         loading={(deleteMutation as any).isPending}
         onConfirm={confirmDelete}
       />
@@ -371,6 +369,9 @@ const ManageProduct: React.FC = () => {
 
 export default ManageProduct;
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Inline select — used only for Active/Inactive status column
+───────────────────────────────────────────────────────────────────────────── */
 interface InlineSelectProps {
   value: string;
   onChange: (value: string) => void;
@@ -379,32 +380,16 @@ interface InlineSelectProps {
   triggerClassName?: string;
 }
 
-function InlineSelect({
-  value,
-  onChange,
-  options,
-  placeholder = "Select",
-  triggerClassName,
-}: InlineSelectProps) {
+function InlineSelect({ value, onChange, options, placeholder = "Select", triggerClassName }: InlineSelectProps) {
   const { control, reset } = useForm<{ value: string }>({ defaultValues: { value } });
   const timerRef = React.useRef<number | null>(null);
 
-  React.useEffect(() => {
-    reset({ value });
-  }, [value, reset]);
-
-  React.useEffect(() => {
-    return () => {
-      if (timerRef.current) window.clearTimeout(timerRef.current);
-    };
-  }, []);
+  React.useEffect(() => { reset({ value }); }, [value, reset]);
+  React.useEffect(() => () => { if (timerRef.current) window.clearTimeout(timerRef.current); }, []);
 
   const handleChange = (v: string) => {
     if (timerRef.current) window.clearTimeout(timerRef.current);
-    timerRef.current = window.setTimeout(() => {
-      onChange(v);
-      timerRef.current = null;
-    }, 500);
+    timerRef.current = window.setTimeout(() => { onChange(v); timerRef.current = null; }, 500);
   };
 
   return (

@@ -218,10 +218,10 @@ export default function ManageSupplier() {
     <div>
       <h2 className="mb-4 text-lg font-medium">Manage Suppliers</h2>
 
-      <div className="flex items-center justify-between mb-4 gap-3">
+      <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
         <SearchBar searchInput={searchInput} setSearchInput={setSearchInput} clearSearch={() => setSearchInput("")} />
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <CustomSelect
             name="status"
             control={bulkForm.control}
@@ -230,7 +230,7 @@ export default function ManageSupplier() {
             fieldToValue={(value) => value}
             onChangeCallback={(value: string) => setBulkStatus(value as SupplierStatus)}
             placeholder="Bulk status"
-            triggerClassName="w-40 min-h-10 bg-background"
+            triggerClassName="w-36 min-h-10 bg-background"
           />
           <CustomButton disabled={selectedIds.length === 0} onClick={applyBulkStatus} loading={bulkUpdateMutation.isPending}>
             Update Status

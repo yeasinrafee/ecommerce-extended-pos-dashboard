@@ -2,7 +2,6 @@ import {
   LuLayoutDashboard,
   LuPackage,
   LuShoppingCart,
-  LuUsers,
   LuWarehouse,
   LuTicketPercent,
   LuGlobe,
@@ -11,6 +10,7 @@ import {
   LuLandmark,
   LuUserCog,
   LuStore,
+  LuHandshake,
 } from "react-icons/lu";
 
 export interface RouteItem {
@@ -88,15 +88,12 @@ export const routes: RouteItem[] = [
       },
     ],
   },
+  // --- Purchases & Suppliers ---
   {
-    icon: LuWarehouse,
-    label: "Inventory",
+    icon: LuHandshake,
+    label: "Purchases & Suppliers",
     href: "",
     subItems: [
-      {
-        label: "Dashboard",
-        href: "/inventory/dashboard",
-      },
       {
         label: "Suppliers",
         href: "/inventory/suppliers",
@@ -110,6 +107,26 @@ export const routes: RouteItem[] = [
         href: "/inventory/grn",
       },
       {
+        label: "Supplier Returns",
+        href: "/inventory/supplier-returns",
+      },
+      {
+        label: "Customer Returns",
+        href: "/inventory/customer-returns",
+      },
+    ],
+  },
+  // --- Inventory ---
+  {
+    icon: LuWarehouse,
+    label: "Inventory",
+    href: "",
+    subItems: [
+      {
+        label: "Dashboard",
+        href: "/inventory/dashboard",
+      },
+      {
         label: "Location-wise Stock",
         href: "/inventory/stocks",
       },
@@ -117,21 +134,15 @@ export const routes: RouteItem[] = [
         label: "Manage Locations",
         href: "/inventory/locations",
       },
-      {
-        label: "Stock Ledger",
-        href: "/inventory/stock-ledger",
-      },
+      // Stock Ledger route is commented out — movement history & audit log
+      // is fully covered under the "Movements" tab in Inventory Reports.
+      // {
+      //   label: "Stock Ledger",
+      //   href: "/inventory/stock-ledger",
+      // },
       {
         label: "Stock Transfers",
         href: "/inventory/transfers",
-      },
-      {
-        label: "Supplier Returns",
-        href: "/inventory/supplier-returns",
-      },
-      {
-        label: "Customer Returns",
-        href: "/inventory/customer-returns",
       },
       {
         label: "Damage Inventory",
@@ -150,7 +161,7 @@ export const routes: RouteItem[] = [
         href: "/inventory/reorder",
       },
       {
-        label: "Inventory Reports",
+        label: "Inventory Reports & Ledger",
         href: "/inventory/reports",
       },
     ],

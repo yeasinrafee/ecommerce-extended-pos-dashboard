@@ -457,7 +457,15 @@ export default function GRNPage() {
   const handleProductSelect = (index: number, productId: string) => {
     setValue(`items.${index}.productId`, productId, { shouldValidate: true });
     const p = productsRes?.find((x: any) => x.id === productId);
-    if (p) setValue(`items.${index}.unitPrice`, p.basePrice || p.Baseprice || 0);
+    if (p) {
+      // Auto-fill unit price from product base price
+      setValue(`items.${index}.unitPrice`, p.basePrice || p.Baseprice || 0);
+      // Auto-fill received / accepted quantities from product stock or defaultQuantity
+      const defQty = p.stock ?? p.defaultQuantity ?? 1;
+      setValue(`items.${index}.quantityReceived`, defQty);
+      setValue(`items.${index}.quantityAccepted`, defQty);
+      setValue(`items.${index}.quantityOrdered`, defQty);
+    }
   };
 
   const subtotal = useMemo(() =>

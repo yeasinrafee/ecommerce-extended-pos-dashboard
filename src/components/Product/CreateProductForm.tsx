@@ -112,7 +112,7 @@ const createProductSchema = z
       return String(value).trim();
     }, z.string().optional()),
     status: z.enum(["ACTIVE", "INACTIVE"]),
-    stockStatus: z.enum(["IN_STOCK", "LOW_STOCK", "OUT_OF_STOCK"]),
+    // stockStatus is NOT sent — server computes it automatically from stock quantity
     categories: z
       .array(z.string().trim().min(1))
       .min(1, "At least one category is required"),
@@ -223,7 +223,7 @@ const defaultFormValues: z.infer<typeof createProductSchema> = {
   height: null,
   brand: "",
   status: "ACTIVE",
-  stockStatus: "IN_STOCK",
+  // stockStatus is server-computed — not part of form
   categories: [],
   tags: [],
   galleryImagesMeta: [],
@@ -314,7 +314,6 @@ export default function CreateProductForm({ productId }: { productId?: string })
   const [isEditorProcessing, setIsEditorProcessing] = React.useState(false);
 
   const selectedDiscountType = watch("discountType");
-  const stockStatusValue = watch("stockStatus");
   const productStatusValue = watch("status");
 
   const { data: productCategories } = useAllCategories();
@@ -388,7 +387,6 @@ export default function CreateProductForm({ productId }: { productId?: string })
       height: p.height ?? null,
       brand: p.brandId ?? "",
       status: p.status ?? "ACTIVE",
-      stockStatus: p.stockStatus ?? "IN_STOCK",
       categories: (p.categories ?? []).map((c: any) => c.categoryId),
       tags: (p.tags ?? []).map((t: any) => t.tagId),
       galleryImagesMeta: [],
@@ -731,7 +729,6 @@ export default function CreateProductForm({ productId }: { productId?: string })
     payload.append("height", values.height == null ? "" : String(values.height));
     if (values.brand) payload.append("brandId", values.brand);
     payload.append("status", values.status);
-    payload.append("stockStatus", values.stockStatus);
     payload.append("categories", JSON.stringify(values.categories));
     payload.append("tags", JSON.stringify(values.tags));
     if (barcode.trim()) payload.append("barcodeId", barcode.trim());
@@ -769,7 +766,6 @@ export default function CreateProductForm({ productId }: { productId?: string })
     payload.append("height", values.height == null ? "" : String(values.height));
     if (values.brand) payload.append("brandId", values.brand);
     payload.append("status", values.status);
-    payload.append("stockStatus", values.stockStatus);
     payload.append("categories", JSON.stringify(values.categories));
     payload.append("tags", JSON.stringify(values.tags));
     if (barcode.trim()) payload.append("barcodeId", barcode.trim());
@@ -882,6 +878,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
           discountOptions={discountOptions}
           stockStatusOptions={stockStatusOptions}
           productStatusOptions={productStatusOptions}
+          isEditMode={isEditMode}
         />
       ),
     },

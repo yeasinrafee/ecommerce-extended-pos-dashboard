@@ -14,6 +14,8 @@ export interface Product {
 	categories?: any[];
 	tags?: any[];
 	stock?: number;
+	/** Target/default quantity entered at product creation — shown as pending stock */
+	defaultQuantity?: number;
 	status?: string;
 	stockStatus?: string;
 	basePrice?: number;
@@ -203,7 +205,7 @@ export const usePatchProduct = () => {
 	});
 };
 
-const bulkPatchProductsReq = async (payload: { ids: string[]; status?: string; stockStatus?: string }) => {
+const bulkPatchProductsReq = async (payload: { ids: string[]; status?: string }) => {
 	const response = await apiClient.patch<ApiResponse<{ count: number }>>(ProductRoutes.bulkPatch, payload);
 	return ensurePayload(response.data, 'Failed to bulk update products');
 };

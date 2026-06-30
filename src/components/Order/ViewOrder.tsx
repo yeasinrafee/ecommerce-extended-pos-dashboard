@@ -106,7 +106,7 @@ export default function ViewOrder({ orderId }: ViewOrderProps) {
     );
   }
 
-  const getStatusColor = (status: Order["orderStatus"]) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case "PENDING":
         return "bg-yellow-100 text-yellow-800 border-yellow-200";

@@ -636,8 +636,15 @@ export default function PurchaseOrdersPage() {
   const handleProductSelect = (index: number, productId: string) => {
     const prod = productsRes?.find((p: any) => p.id === productId);
     if (prod) {
+      // Auto-populate unit price from product base price
       const price = prod.Baseprice ?? prod.basePrice ?? prod.finalPrice ?? 0;
       setValue(`items.${index}.unitPrice`, price, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+      // Auto-populate quantity from product existing stock or defaultQuantity
+      const defaultQty = prod.stock ?? prod.defaultQuantity ?? 1;
+      setValue(`items.${index}.quantity`, defaultQty, {
         shouldValidate: true,
         shouldDirty: true,
       });
@@ -928,15 +935,18 @@ export default function PurchaseOrdersPage() {
               </tbody>
             </table>
             <div className="p-4 border-t border-slate-100 flex items-center justify-between">
-                <PaginationControl
-                  currentPage={meta.page}
-                  totalPages={meta.totalPages}
-                  onPageChange={setPage}
-                  totalItems={meta.total}
-                  itemsPerPage={limit}
-                  onLimitChange={(newLimit) => { setLimit(newLimit); setPage(1); }}
-                />
-              </div>
+              <PaginationControl
+                currentPage={meta.page}
+                totalPages={meta.totalPages}
+                onPageChange={setPage}
+                totalItems={meta.total}
+                itemsPerPage={limit}
+                onLimitChange={(newLimit) => {
+                  setLimit(newLimit);
+                  setPage(1);
+                }}
+              />
+            </div>
           </div>
         )}
       </Card>

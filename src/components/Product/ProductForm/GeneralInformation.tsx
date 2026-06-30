@@ -46,6 +46,8 @@ interface GeneralInformationProps {
   discountOptions: Option[];
   stockStatusOptions: Option[];
   productStatusOptions: Option[];
+  /** When false (create mode), Stock Status is hidden — the server always forces OUT_OF_STOCK on create */
+  isEditMode?: boolean;
 }
 
 const GeneralInformation: React.FC<GeneralInformationProps> = ({
@@ -79,6 +81,7 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
   discountOptions,
   stockStatusOptions,
   productStatusOptions,
+  isEditMode = false,
 }) => {
   const barcodeInputRef = React.useRef<HTMLInputElement>(null);
   const barcodeBlurTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -211,15 +214,22 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <CustomInput
-          label="Stock Quantity"
-          type="number"
-          value={stockQuantity === null ? "" : stockQuantity}
-          onValueChange={(value) => setStockQuantity(value as number | null)}
-          requiredMark
-          placeholder="0"
-          min={0}
-        />
+        <div className="space-y-1">
+          <CustomInput
+            label="Default Quantity (Target)"
+            type="number"
+            value={stockQuantity === null ? "" : stockQuantity}
+            onValueChange={(value) => setStockQuantity(value as number | null)}
+            requiredMark
+            placeholder="0"
+            min={0}
+          />
+          {!isEditMode && (
+            <p className="text-xs text-slate-400">
+              This is the target quantity. Actual stock is set to 0 until stocked via GRN.
+            </p>
+          )}
+        </div>
         <CustomInput
           label="SKU"
           value={sku}
@@ -279,13 +289,24 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <CustomSelect
-          name="stockStatus"
-          control={control}
-          label="Stock Status"
-          requiredMark
-          options={stockStatusOptions}
-        />
+        {isEditMode ? (
+          <CustomSelect
+            name="stockStatus"
+            control={control}
+            label="Stock Status"
+            requiredMark
+            options={stockStatusOptions}
+          />
+        ) : (
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-slate-700">
+              Stock Status
+            </label>
+            <div className="flex h-9 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-500">
+              Out of Stock <span className="ml-2 text-xs text-slate-400">(set automatically via GRN)</span>
+            </div>
+          </div>
+        )}
         <CustomSelect
           name="status"
           control={control}
