@@ -133,7 +133,7 @@ const Sidebar = ({
         className={cn(
           'fixed inset-y-0 left-0 z-50 border-r border-slate-200 bg-white text-slate-900 shadow-sm transition-all duration-300 ease-in-out md:relative md:translate-x-0',
           isMobile && !mobileOpen ? '-translate-x-full' : 'translate-x-0',
-          isCollapsed ? 'w-16' : 'w-56 xl:w-64 2xl:w-68',
+          isCollapsed ? 'w-16' : 'w-56 lg:w-68',
         )}
       >
         {/* Sidebar Header */}

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import ReactDOM from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as zod from "zod";
 import { apiClient } from "@/lib/api";
@@ -534,7 +534,6 @@ export default function PurchaseOrdersPage() {
     register,
     control,
     handleSubmit,
-    watch,
     setValue,
     reset,
     formState: { errors },
@@ -559,7 +558,9 @@ export default function PurchaseOrdersPage() {
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: "items" });
-  const watchedItems = watch("items");
+
+  // useWatch subscribes to live field changes — watch() snapshot can be stale
+  const watchedItems = useWatch({ control, name: "items" });
 
   useEffect(() => {
     if (editingPO) {

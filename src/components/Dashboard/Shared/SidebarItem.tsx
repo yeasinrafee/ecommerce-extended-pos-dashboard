@@ -34,13 +34,24 @@ interface SidebarItemProps {
   }[];
 }
 
+/* ─── shared style tokens ─────────────────────────────────────────────────── */
+
 const itemBase =
-  'flex items-center gap-3 w-full rounded-md px-3 py-2 text-[0.92rem] font-normal leading-5 transition-colors outline-none';
+  'relative flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-lg font-medium! leading-5 transition-colors outline-none select-none';
 
-const itemInactive = 'text-slate-700 hover:bg-slate-50 hover:text-slate-900';
-const itemActive   = 'bg-[#eef2ff] text-[#3460be] hover:bg-[#eef2ff] hover:text-[#3460be]';
+const itemInactive =
+  'font-normal text-slate-600 hover:bg-slate-100 hover:text-slate-900 text-[14.5px]';
 
-const iconBase = 'my-1 h-10 w-full flex items-center justify-center rounded-md transition-colors outline-none';
+// Active: light indigo bg + bold text + left accent pill clipped to item's rounded corners
+const itemActive =
+  'font-bold bg-[#eef2ff] text-base text-[#003d9b] hover:bg-[#e5eaff] hover:text-[#003d9b]' +
+  ' before:absolute before:left-0 before:top-[6px] before:bottom-[6px] before:w-[4px]' +
+  ' before:rounded-full before:bg-[#003d9b] before:content-[""]';
+
+const iconBase =
+  'my-0.5 h-10 w-full flex items-center justify-center rounded-lg transition-colors outline-none';
+
+/* ─── component ──────────────────────────────────────────────────────────── */
 
 const SidebarItem = ({
   icon: Icon,
@@ -66,6 +77,11 @@ const SidebarItem = ({
     pathname === href ||
     (hasSubItems && subItems?.some((item) => item.href === pathname));
 
+  // Parent with subItems shows active bg when expanded OR when a child is active
+  const isParentActive =
+    isActive || (hasSubItems && expanded);
+
+  /* ── collapsed sidebar ──────────────────────────────────────────────────── */
   if (collapsed) {
     if (hasSubItems) {
       return (
@@ -77,7 +93,9 @@ const SidebarItem = ({
                   <button
                     className={cn(
                       iconBase,
-                      isActive ? itemActive : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900',
+                      isActive
+                        ? 'bg-[#eef2ff] text-[#003d9b] hover:bg-[#e5eaff]'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
                     )}
                   >
                     <Icon className='h-5 w-5' />
@@ -107,10 +125,10 @@ const SidebarItem = ({
                   <DropdownMenuItem
                     key={index}
                     className={cn(
-                      'cursor-pointer rounded-md text-[0.92rem] font-normal transition-colors p-0',
+                      'cursor-pointer rounded-md text-[0.875rem] transition-colors p-0',
                       isSubItemActive
-                        ? 'bg-[#eef2ff] text-[#3460be] hover:bg-[#eef2ff] hover:text-[#3460be] focus:bg-[#eef2ff] focus:text-[#3460be]'
-                        : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 focus:bg-slate-50 focus:text-slate-900',
+                        ? 'font-bold bg-[#eef2ff] text-[#003d9b] hover:bg-[#e5eaff] hover:text-[#003d9b] focus:bg-[#eef2ff] focus:text-[#003d9b]'
+                        : 'font-normal text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus:bg-slate-100 focus:text-slate-900',
                     )}
                     asChild
                   >
@@ -144,7 +162,9 @@ const SidebarItem = ({
                   href={href}
                   className={cn(
                     iconBase,
-                    isActive ? itemActive : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900',
+                    isActive
+                      ? 'bg-[#eef2ff] text-[#003d9b] hover:bg-[#e5eaff]'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
                   )}
                 >
                   <Icon className='h-5 w-5' />
@@ -154,7 +174,9 @@ const SidebarItem = ({
                 <button
                   className={cn(
                     iconBase,
-                    isActive ? itemActive : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900',
+                    isActive
+                      ? 'bg-[#eef2ff] text-[#003d9b] hover:bg-[#e5eaff]'
+                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
                   )}
                   onClick={onClick}
                 >
@@ -172,6 +194,7 @@ const SidebarItem = ({
     );
   }
 
+  /* ── expanded sidebar ───────────────────────────────────────────────────── */
   return (
     <div>
       {href && !hasSubItems ? (
@@ -179,15 +202,15 @@ const SidebarItem = ({
           href={href}
           className={cn(itemBase, isActive ? itemActive : itemInactive)}
         >
-          <Icon className='h-5 w-5' />
+          <Icon className='h-5 w-5 shrink-0' />
           <span>{label}</span>
         </Link>
       ) : (
         <button
-          className={cn(itemBase, isActive ? itemActive : itemInactive)}
+          className={cn(itemBase, isParentActive ? itemActive : itemInactive)}
           onClick={hasSubItems ? () => setExpanded(!expanded) : onClick}
         >
-          <Icon className='h-5 w-5' />
+          <Icon className='h-5 w-5 shrink-0' />
           <span>{label}</span>
           {hasSubItems && (
             <span className='ml-auto'>
@@ -202,7 +225,7 @@ const SidebarItem = ({
       )}
 
       {hasSubItems && expanded && (
-        <div className='ml-4 mt-1 space-y-1 border-l border-slate-200 pl-3'>
+        <div className='ml-4 mt-0.5 space-y-0.5 border-l border-slate-200 pl-3'>
           {subItems.map((item, index) => {
             const SubIcon = item.icon as React.ElementType | undefined;
             const isSubItemActive = item.active || pathname === item.href;
@@ -213,11 +236,10 @@ const SidebarItem = ({
                 href={item.href}
                 className={cn(
                   itemBase,
-                  'pl-4',
                   isSubItemActive ? itemActive : itemInactive,
                 )}
               >
-                {SubIcon ? <SubIcon className='h-4 w-4' /> : null}
+                {SubIcon ? <SubIcon className='h-4 w-4 shrink-0' /> : null}
                 {item.label}
               </Link>
             ) : (
@@ -225,11 +247,10 @@ const SidebarItem = ({
                 key={index}
                 className={cn(
                   itemBase,
-                  'pl-4',
                   isSubItemActive ? itemActive : itemInactive,
                 )}
               >
-                {SubIcon ? <SubIcon className='h-4 w-4' /> : null}
+                {SubIcon ? <SubIcon className='h-4 w-4 shrink-0' /> : null}
                 {item.label}
               </button>
             );
