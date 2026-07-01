@@ -41,7 +41,7 @@ const productStatusOptions = [
   { label: "Inactive", value: "INACTIVE" },
 ];
 
-const toNumber = (value: unknown) => {
+const toNumber = (value: any) => {
   if (value === "" || value === null || value === undefined) {
     return value;
   }
@@ -99,7 +99,6 @@ const createProductSchema = z
     discountValue: nullableNumberSchema,
     discountStartDate: nullableDateStringSchema,
     discountEndDate: nullableDateStringSchema,
-    stock: z.preprocess(toNumber, z.number().int().positive()),
     sku: nullableStringSchema,
     weight: nullablePositiveNumberSchema,
     length: nullablePositiveNumberSchema,
@@ -152,18 +151,6 @@ const createProductSchema = z
       .nullable(),
   })
   .superRefine((data, ctx) => {
-    const hasWeight = data.weight != null;
-    const hasDimensions =
-      data.length != null && data.width != null && data.height != null;
-
-    if (!hasWeight && !hasDimensions) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["weight"],
-        message: "Provide weight or all three dimensions",
-      });
-    }
-
     const needsDiscountValue = data.discountType !== "NONE";
     if (
       needsDiscountValue &&
@@ -215,7 +202,6 @@ const defaultFormValues: z.infer<typeof createProductSchema> = {
   discountValue: null,
   discountStartDate: null,
   discountEndDate: null,
-  stock: 0,
   sku: null,
   weight: null,
   length: null,
@@ -294,7 +280,6 @@ export default function CreateProductForm({ productId }: { productId?: string })
   const [discountValue, setDiscountValue] = React.useState<number | null>(null);
   const [discountStart, setDiscountStart] = React.useState<Date | null>(null);
   const [discountEnd, setDiscountEnd] = React.useState<Date | null>(null);
-  const [stockQuantity, setStockQuantity] = React.useState<number | null>(null);
   const [sku, setSku] = React.useState("");
   const [weight, setWeight] = React.useState<number | null>(null);
   const [lengthCm, setLengthCm] = React.useState<number | null>(null);
@@ -354,7 +339,6 @@ export default function CreateProductForm({ productId }: { productId?: string })
     setDiscountValue(p.discountValue ?? null);
     setDiscountStart(p.discountStartDate ? new Date(p.discountStartDate) : null);
     setDiscountEnd(p.discountEndDate ? new Date(p.discountEndDate) : null);
-    setStockQuantity(p.stock ?? null);
     setSku(p.sku ?? "");
     setWeight(p.weight ?? null);
     setLengthCm(p.length ?? null);
@@ -379,7 +363,6 @@ export default function CreateProductForm({ productId }: { productId?: string })
       discountValue: p.discountValue ?? null,
       discountStartDate: p.discountStartDate ?? null,
       discountEndDate: p.discountEndDate ?? null,
-      stock: p.stock ?? 0,
       sku: p.sku ?? null,
       weight: p.weight ?? null,
       length: p.length ?? null,
@@ -510,14 +493,6 @@ export default function CreateProductForm({ productId }: { productId?: string })
   const updateDiscountEnd = (value: Date | null) => {
     setDiscountEnd(value);
     setValue("discountEndDate", value ? value.toISOString() : null, {
-      shouldValidate: true,
-      shouldDirty: true,
-    });
-  };
-
-  const updateStockQuantity = (value: number | null) => {
-    setStockQuantity(value);
-    setValue("stock", value ?? 0, {
       shouldValidate: true,
       shouldDirty: true,
     });
@@ -676,7 +651,6 @@ export default function CreateProductForm({ productId }: { productId?: string })
   const hasMainImage = !!rightData.mainImage || !!currentMainImageExistingUrl;
   const submitDisabled =
     !isValid ||
-    !hasMainImage ||
     !hasActualChanges ||
     mutationPending ||
     isSubmitting ||
@@ -721,7 +695,6 @@ export default function CreateProductForm({ productId }: { productId?: string })
     payload.append("discountValue", values.discountValue == null ? "" : String(values.discountValue));
     payload.append("discountStartDate", values.discountStartDate ?? "");
     payload.append("discountEndDate", values.discountEndDate ?? "");
-    payload.append("stock", String(values.stock));
     payload.append("sku", values.sku ?? "");
     payload.append("weight", values.weight == null ? "" : String(values.weight));
     payload.append("length", values.length == null ? "" : String(values.length));
@@ -741,7 +714,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
     const hasSeoData = Boolean(seoData.metaTitle || seoData.metaDescription || seoData.seoKeywords.length > 0);
     payload.append("seo", JSON.stringify(hasSeoData ? seoData : null));
 
-    payload.append("mainImage", rightData.mainImage!.file);
+    if (rightData.mainImage) payload.append("mainImage", rightData.mainImage.file);
     rightData.galleryImages.forEach((image) => payload.append("galleryImages", image.file));
 
     return payload;
@@ -758,7 +731,6 @@ export default function CreateProductForm({ productId }: { productId?: string })
     payload.append("discountValue", values.discountValue == null ? "" : String(values.discountValue));
     payload.append("discountStartDate", values.discountStartDate ?? "");
     payload.append("discountEndDate", values.discountEndDate ?? "");
-    payload.append("stock", String(values.stock));
     payload.append("sku", values.sku ?? "");
     payload.append("weight", values.weight == null ? "" : String(values.weight));
     payload.append("length", values.length == null ? "" : String(values.length));
@@ -804,7 +776,6 @@ export default function CreateProductForm({ productId }: { productId?: string })
     setDiscountValue(null);
     setDiscountStart(null);
     setDiscountEnd(null);
-    setStockQuantity(null);
     setSku("");
     setWeight(null);
     setLengthCm(null);
@@ -823,11 +794,6 @@ export default function CreateProductForm({ productId }: { productId?: string })
   };
 
   const onSubmit = (values: z.infer<typeof createProductSchema>) => {
-    if (!hasMainImage) {
-      toast.error("Main image is required");
-      return;
-    }
-
     if (attributesPending && attributesPending.name && (!attributesPending.value || attributesPending.value.trim() === "")) {
       toast.error(`Please select a value for attribute "${attributesPending.name}"`);
       return;
@@ -862,8 +828,6 @@ export default function CreateProductForm({ productId }: { productId?: string })
           setDiscountStart={updateDiscountStart}
           discountEnd={discountEnd}
           setDiscountEnd={updateDiscountEnd}
-          stockQuantity={stockQuantity}
-          setStockQuantity={updateStockQuantity}
           sku={sku}
           setSku={updateSku}
           weight={weight}
@@ -876,9 +840,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
           setHeightCm={updateHeight}
           control={control as unknown as any}
           discountOptions={discountOptions}
-          stockStatusOptions={stockStatusOptions}
           productStatusOptions={productStatusOptions}
-          isEditMode={isEditMode}
         />
       ),
     },

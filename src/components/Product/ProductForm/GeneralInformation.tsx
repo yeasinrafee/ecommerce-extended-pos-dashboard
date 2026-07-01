@@ -1,8 +1,4 @@
 import React from "react";
-// Control typing from react-hook-form is intentionally relaxed to avoid
-// generic variance errors when the parent form uses a specific field type.
-// The form `control` is still used at runtime and validated by react-hook-form.
-
 import { BiBarcodeReader } from "react-icons/bi";
 import CustomInput from "../../FormFields/CustomInput";
 import CustomSelect from "../../FormFields/CustomSelect";
@@ -29,8 +25,6 @@ interface GeneralInformationProps {
   setDiscountStart: (value: Date | null) => void;
   discountEnd: Date | null;
   setDiscountEnd: (value: Date | null) => void;
-  stockQuantity: number | null;
-  setStockQuantity: (value: number | null) => void;
   sku: string;
   setSku: (value: string) => void;
   weight: number | null;
@@ -44,10 +38,7 @@ interface GeneralInformationProps {
   // allow any to avoid cross-file react-hook-form generic incompatibilities
   control: any;
   discountOptions: Option[];
-  stockStatusOptions: Option[];
   productStatusOptions: Option[];
-  /** When false (create mode), Stock Status is hidden — the server always forces OUT_OF_STOCK on create */
-  isEditMode?: boolean;
 }
 
 const GeneralInformation: React.FC<GeneralInformationProps> = ({
@@ -65,8 +56,6 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
   setDiscountStart,
   discountEnd,
   setDiscountEnd,
-  stockQuantity,
-  setStockQuantity,
   sku,
   setSku,
   weight,
@@ -79,12 +68,11 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
   setHeightCm,
   control,
   discountOptions,
-  stockStatusOptions,
   productStatusOptions,
-  isEditMode = false,
 }) => {
   const barcodeInputRef = React.useRef<HTMLInputElement>(null);
   const barcodeBlurTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const finalPrice = React.useMemo(() => {
     if (basePrice == null) return "";
     const disc = discountValue ?? 0;
@@ -97,9 +85,11 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
         return basePrice;
     }
   }, [basePrice, selectedDiscountType, discountValue]);
+
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2">
+      {/* Base Price + POS Price + Final Price — same row */}
+      <div className="grid gap-4 md:grid-cols-3">
         <CustomInput
           label="Base Price"
           type="number"
@@ -108,20 +98,6 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
           requiredMark
           placeholder="0.00"
         />
-        <div>
-          <label className="block text-sm font-medium text-slate-700">
-            Final Price
-          </label>
-          <CustomInput
-            type="number"
-            value={finalPrice === "" ? "" : finalPrice}
-            disabled
-            className="mt-1"
-          />
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
         <CustomInput
           label="POS Price"
           type="number"
@@ -130,11 +106,21 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
           placeholder="Optional"
           min={1}
         />
-        {/* Barcode field — accepts manual input and physical barcode scanners */}
+        <div>
+          <label className="block text-sm font-medium text-slate-700">Final Price</label>
+          <CustomInput
+            type="number"
+            value={finalPrice === "" ? "" : finalPrice}
+            disabled
+            className="mt-1 border-rose-300 bg-rose-50/40 text-rose-700 cursor-not-allowed"
+          />
+        </div>
+      </div>
+
+      {/* Barcode + SKU */}
+      <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="barcode-input">
-            Barcode
-          </Label>
+          <Label htmlFor="barcode-input">Barcode</Label>
           <div className="relative">
             <input
               id="barcode-input"
@@ -146,10 +132,7 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
               onChange={(e) => setBarcode(e.target.value)}
               onBlur={() => {
                 barcodeBlurTimerRef.current = setTimeout(() => {
-                  if (
-                    document.activeElement === document.body ||
-                    document.activeElement === null
-                  ) {
+                  if (document.activeElement === document.body || document.activeElement === null) {
                     barcodeInputRef.current?.focus();
                   }
                 }, 0);
@@ -173,13 +156,17 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
             />
           </div>
           {barcodeError && (
-            <p id="barcode-error" className="text-xs text-destructive">
-              {barcodeError}
-            </p>
+            <p id="barcode-error" className="text-xs text-destructive">{barcodeError}</p>
           )}
         </div>
+        <CustomInput
+          label="SKU"
+          value={sku}
+          onChange={(event: React.ChangeEvent<HTMLInputElement>) => setSku(event.target.value)}
+        />
       </div>
 
+      {/* Discount */}
       <div className="grid gap-4 md:grid-cols-2">
         <CustomSelect
           name="discountType"
@@ -187,15 +174,15 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
           label="Discount Type"
           options={discountOptions}
         />
-          <CustomInput
-            label="Discount Value"
-            type="number"
-            value={discountValue === null ? "" : discountValue}
-            onValueChange={(value) => setDiscountValue(value as number | null)}
-            placeholder="0"
-            min={0}
-            disabled={selectedDiscountType === "NONE"}
-          />
+        <CustomInput
+          label="Discount Value"
+          type="number"
+          value={discountValue === null ? "" : discountValue}
+          onValueChange={(value) => setDiscountValue(value as number | null)}
+          placeholder="0"
+          min={0}
+          disabled={selectedDiscountType === "NONE"}
+        />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -213,107 +200,52 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
         />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-1">
-          <CustomInput
-            label="Default Quantity (Target)"
-            type="number"
-            value={stockQuantity === null ? "" : stockQuantity}
-            onValueChange={(value) => setStockQuantity(value as number | null)}
-            requiredMark
-            placeholder="0"
-            min={0}
-          />
-          {!isEditMode && (
-            <p className="text-xs text-slate-400">
-              This is the target quantity. Actual stock is set to 0 until stocked via GRN.
-            </p>
-          )}
-        </div>
-        <CustomInput
-          label="SKU"
-          value={sku}
-          onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-            setSku(event.target.value)
-          }
-        />
-      </div>
-
-      <div className="">
-        <p className="my-2 text-xs text-slate-500">
-          Either provide weight or all three dimensions (Length, Width, Height).
+      {/* Weight + Dimensions + Status — all in one row on large screens */}
+      <div>
+        <p className="mb-2 text-xs text-slate-500">
+          Weight and dimensions are optional — used for shipping cost calculations.
         </p>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-[1fr_1fr_1fr_1fr_1fr]">
           <CustomInput
-            label="Weight (grams/Ml)"
+            label="Weight (g/ml)"
             type="number"
             value={weight === null ? "" : weight}
             onValueChange={(value) => setWeight(value as number | null)}
-            placeholder="0"
+            placeholder="Optional"
             min={0}
-            requiredMark
           />
-
-          <div>
-            <div className="mt-1 grid grid-cols-3 gap-2">
-              <CustomInput
-                label="Length"
-                type="number"
-                value={lengthCm === null ? "" : lengthCm}
-                onValueChange={(value) => setLengthCm(value as number | null)}
-                placeholder="0"
-                min={0}
-                requiredMark
-              />
-              <CustomInput
-                label="Width"
-                type="number"
-                value={widthCm === null ? "" : widthCm}
-                onValueChange={(value) => setWidthCm(value as number | null)}
-                placeholder="0"
-                min={0}
-                requiredMark
-              />
-              <CustomInput
-                label="Height"
-                type="number"
-                value={heightCm === null ? "" : heightCm}
-                onValueChange={(value) => setHeightCm(value as number | null)}
-                placeholder="0"
-                min={0}
-                requiredMark
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        {isEditMode ? (
+          <CustomInput
+            label="Length (cm)"
+            type="number"
+            value={lengthCm === null ? "" : lengthCm}
+            onValueChange={(value) => setLengthCm(value as number | null)}
+            placeholder="Optional"
+            min={0}
+          />
+          <CustomInput
+            label="Width (cm)"
+            type="number"
+            value={widthCm === null ? "" : widthCm}
+            onValueChange={(value) => setWidthCm(value as number | null)}
+            placeholder="Optional"
+            min={0}
+          />
+          <CustomInput
+            label="Height (cm)"
+            type="number"
+            value={heightCm === null ? "" : heightCm}
+            onValueChange={(value) => setHeightCm(value as number | null)}
+            placeholder="Optional"
+            min={0}
+          />
           <CustomSelect
-            name="stockStatus"
+            name="status"
             control={control}
-            label="Stock Status"
+            label="Product Status"
             requiredMark
-            options={stockStatusOptions}
+            options={productStatusOptions}
           />
-        ) : (
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-slate-700">
-              Stock Status
-            </label>
-            <div className="flex h-9 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-500">
-              Out of Stock <span className="ml-2 text-xs text-slate-400">(set automatically via GRN)</span>
-            </div>
-          </div>
-        )}
-        <CustomSelect
-          name="status"
-          control={control}
-          label="Product Status"
-          requiredMark
-          options={productStatusOptions}
-        />
+        </div>
       </div>
     </div>
   );

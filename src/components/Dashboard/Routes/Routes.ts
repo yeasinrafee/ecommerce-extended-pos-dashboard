@@ -50,10 +50,6 @@ export const routes: RouteItem[] = [
         href: "/dashboard/categories/product-categories/manage",
       },
       {
-        label: "Product Sub-Categories",
-        href: "/dashboard/categories/product-subcategories/manage",
-      },
-      {
         label: "Product Tags",
         href: "/dashboard/tags/product-tags/manage",
       },
@@ -153,15 +149,11 @@ export const routes: RouteItem[] = [
         href: "/inventory/adjustments",
       },
       {
-        label: "Low Stock Alerts",
-        href: "/inventory/low-stock",
-      },
-      {
-        label: "Reorder Suggestions",
+        label: "Low Stock Alert",
         href: "/inventory/reorder",
       },
       {
-        label: "Inventory Reports & Ledger",
+        label: "Inventory Reports",
         href: "/inventory/reports",
       },
     ],

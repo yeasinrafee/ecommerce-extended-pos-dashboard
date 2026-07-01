@@ -224,13 +224,13 @@ function ProductCombobox({
           <div className="flex items-center gap-2 min-w-0 flex-1">
             {selected ? (
               <>
-                <span className="font-medium text-slate-900 truncate">{selected.name}</span>
-                <span className="font-mono text-[11px] text-slate-400 shrink-0 bg-slate-100 px-1.5 py-0.5 rounded">
+                <span className="font-medium text-slate-900 truncate min-w-0 flex-1">{selected.name}</span>
+                {/* <span className="font-mono text-[11px] text-slate-400 shrink-0 bg-slate-100 px-1.5 py-0.5 rounded hidden sm:inline">
                   {selected.sku}
-                </span>
+                </span> */}
               </>
             ) : (
-              <span className="text-slate-400">{placeholder}</span>
+              <span className="text-slate-400 truncate">{placeholder}</span>
             )}
           </div>
         </button>
@@ -672,7 +672,7 @@ export default function GRNPage() {
 
       {/* ── Create GRN Dialog ─────────────────────────────────────────────────── */}
       <Dialog open={formOpen} onOpenChange={o => { if (!o) { setFormOpen(false); reset(); } }} modal={false}>
-        <DialogContent className="w-full max-w-[calc(100%-1rem)] sm:max-w-3xl lg:max-w-5xl max-h-[95dvh] sm:max-h-[92vh] overflow-y-auto p-0 rounded-xl sm:rounded-2xl">
+        <DialogContent className="w-full max-w-[calc(100%-1rem)] sm:max-w-3xl lg:max-w-6xl max-h-[95dvh] sm:max-h-[92vh] overflow-y-auto p-0 rounded-xl sm:rounded-2xl">
           <DialogTitle className="sr-only">New Goods Receive Note</DialogTitle>
 
           {/* Sticky header */}
@@ -776,17 +776,17 @@ export default function GRNPage() {
 
               <div className="rounded-xl border border-slate-200 overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs min-w-[700px]">
+                  <table className="w-full text-left text-xs min-w-[700px] table-fixed">
                     <thead className="bg-slate-50 border-b border-slate-200 font-semibold text-slate-500 uppercase">
                       <tr>
-                        <th className="px-3 py-2.5 w-[26%]">Product *</th>
-                        <th className="px-3 py-2.5 text-center w-[7%]">Ordered</th>
-                        <th className="px-3 py-2.5 text-center w-[9%]">Received *</th>
-                        <th className="px-3 py-2.5 text-center w-[9%]">Accepted</th>
-                        <th className="px-3 py-2.5 text-center w-[9%]">Rejected</th>
-                        <th className="px-3 py-2.5 text-center w-[10%]">Unit Price</th>
-                        <th className="px-3 py-2.5 w-[12%]">Batch</th>
-                        <th className="px-3 py-2.5 w-[12%]">Expiry</th>
+                        <th className="px-3 py-2.5 w-[200px]">Product *</th>
+                        <th className="px-3 py-2.5 text-center w-[68px]">Ordered</th>
+                        <th className="px-3 py-2.5 text-center w-[76px]">Received *</th>
+                        <th className="px-3 py-2.5 text-center w-[76px]">Accepted</th>
+                        <th className="px-3 py-2.5 text-center w-[72px]">Rejected</th>
+                        <th className="px-3 py-2.5 text-center w-[84px]">Unit Price</th>
+                        <th className="px-3 py-2.5 w-[96px]">Batch</th>
+                        <th className="px-3 py-2.5 w-[110px]">Expiry</th>
                         <th className="px-3 py-2.5 w-8"></th>
                       </tr>
                     </thead>
@@ -797,7 +797,7 @@ export default function GRNPage() {
                         return (
                           <tr key={field.id} className="bg-white hover:bg-slate-50/50 transition-colors">
                             {/* ── FIX #3: ProductCombobox instead of <select> ── */}
-                            <td className="px-3 py-2">
+                            <td className="px-3 py-2 overflow-hidden">
                               <ProductCombobox
                                 value={watchedItems?.[index]?.productId || ''}
                                 onChange={(id) => handleProductSelect(index, id)}

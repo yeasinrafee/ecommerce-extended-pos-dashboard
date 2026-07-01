@@ -58,6 +58,8 @@ const MainInformation: React.FC<MainInformationProps> = ({
             control={control}
             label="Product Brand"
             options={brandOptions}
+            clearable
+            placeholder="Select a brand (optional)"
           />
         </div>
 

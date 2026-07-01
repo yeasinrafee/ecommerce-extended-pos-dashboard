@@ -9,12 +9,13 @@ import DeleteModal from "@/components/Common/DeleteModal";
 import SearchBar from "@/components/FormFields/SearchBar";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Edit2, Trash2 } from "lucide-react";
+import { MoreHorizontal, Edit2, Trash2, Eye } from "lucide-react";
 import { BiBarcodeReader } from "react-icons/bi";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { usePaginatedProducts, useDeleteProduct, usePatchProduct, useBulkPatchProducts } from "@/hooks/product.api";
 import CustomSelect from "@/components/FormFields/CustomSelect";
+import ProductDetails from "@/components/Product/ProductDetails";
 
 const productStatusOptions = [
   { label: "Active", value: "ACTIVE" },
@@ -134,6 +135,10 @@ const ManageProduct: React.FC = () => {
   const [deleteModalOpen, setDeleteModalOpen] = React.useState(false);
   const deleteMutation = useDeleteProduct();
 
+  const [detailsProductId, setDetailsProductId] = React.useState<string | null>(null);
+  const [detailsOpen, setDetailsOpen] = React.useState(false);
+
+  const handleView = (item: any) => { setDetailsProductId(item.id); setDetailsOpen(true); };
   const handleEdit = (item: any) => router.push(`/dashboard/product/edit?id=${item.id}`);
   const handleDelete = (item: any) => { setDeleteTarget(item); setDeleteModalOpen(true); };
   const confirmDelete = async () => {
@@ -196,6 +201,17 @@ const ManageProduct: React.FC = () => {
         header: "Name",
         cell: (row) => <span className="font-medium text-slate-800 line-clamp-2 max-w-[200px]">{row.name}</span>
       },
+      {
+        header: "Barcode",
+        cell: (row) => row.barcodeId ? (
+          <span className="inline-flex items-center gap-1.5 font-mono text-xs text-slate-600 bg-slate-50 border border-slate-200 px-2 py-1 rounded-md whitespace-nowrap">
+            <BiBarcodeReader size={14} className="text-slate-400 shrink-0" />
+            {row.barcodeId}
+          </span>
+        ) : (
+          <span className="text-slate-400 text-xs">-</span>
+        ),
+      },
       { header: "Brand", cell: (row) => <span className="text-slate-600 font-medium">{row.brand?.name || "-"}</span> },
       {
         header: "Categories",
@@ -227,7 +243,7 @@ const ManageProduct: React.FC = () => {
       {
         header: "Price",
         cell: (row) => row.finalPrice != null
-          ? <span className="font-semibold text-slate-900">${row.finalPrice}</span>
+          ? <span className="font-semibold text-slate-900"><span className="text-base">৳</span>{row.finalPrice}</span>
           : <span className="text-slate-400">-</span>
       },
       {
@@ -342,7 +358,10 @@ const ManageProduct: React.FC = () => {
                   <MoreHorizontal className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40 rounded-lg border-slate-100">
+              <DropdownMenuContent align="end" className="w-44 rounded-lg border-slate-100">
+                <DropdownMenuItem onClick={() => handleView(item)} className="flex items-center gap-2 text-slate-600 cursor-pointer">
+                  <Eye className="size-3.5" /> View Details
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleEdit(item)} className="flex items-center gap-2 text-slate-600 cursor-pointer">
                   <Edit2 className="size-3.5" /> Edit Product
                 </DropdownMenuItem>
@@ -362,6 +381,12 @@ const ManageProduct: React.FC = () => {
         description={deleteTarget ? `Are you sure you want to delete "${deleteTarget.name}"? This cannot be undone.` : undefined}
         loading={(deleteMutation as any).isPending}
         onConfirm={confirmDelete}
+      />
+
+      <ProductDetails
+        productId={detailsProductId}
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
       />
     </div>
   );

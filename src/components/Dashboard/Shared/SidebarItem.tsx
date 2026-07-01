@@ -37,7 +37,7 @@ interface SidebarItemProps {
 /* ─── shared style tokens ─────────────────────────────────────────────────── */
 
 const itemBase =
-  'relative flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-lg font-medium! leading-5 transition-colors outline-none select-none';
+  'relative flex items-center gap-3 w-full px-3 py-2.5 text-lg font-medium! leading-5 transition-colors outline-none select-none';
 
 const itemInactive =
   'font-normal text-slate-600 hover:bg-slate-100 hover:text-slate-900 text-[14.5px]';
@@ -77,9 +77,8 @@ const SidebarItem = ({
     pathname === href ||
     (hasSubItems && subItems?.some((item) => item.href === pathname));
 
-  // Parent with subItems shows active bg when expanded OR when a child is active
-  const isParentActive =
-    isActive || (hasSubItems && expanded);
+  // Parent with subItems shows active bg ONLY when a child is active (not when just expanded)
+  const isParentActive = isActive;
 
   /* ── collapsed sidebar ──────────────────────────────────────────────────── */
   if (collapsed) {
@@ -225,10 +224,11 @@ const SidebarItem = ({
       )}
 
       {hasSubItems && expanded && (
-        <div className='ml-4 mt-0.5 space-y-0.5 border-l border-slate-200 pl-3'>
+        <div className='ml-4 mt-0.5 border-l border-slate-200 pl-2'>
           {subItems.map((item, index) => {
             const SubIcon = item.icon as React.ElementType | undefined;
             const isSubItemActive = item.active || pathname === item.href;
+            const isLast = index === subItems.length - 1;
 
             return item.href ? (
               <Link
@@ -236,7 +236,9 @@ const SidebarItem = ({
                 href={item.href}
                 className={cn(
                   itemBase,
+                  'py-2',
                   isSubItemActive ? itemActive : itemInactive,
+                  !isLast && 'border-b border-slate-200',
                 )}
               >
                 {SubIcon ? <SubIcon className='h-4 w-4 shrink-0' /> : null}
@@ -247,7 +249,9 @@ const SidebarItem = ({
                 key={index}
                 className={cn(
                   itemBase,
+                  'py-1.5',
                   isSubItemActive ? itemActive : itemInactive,
+                  !isLast && 'border-b border-slate-100',
                 )}
               >
                 {SubIcon ? <SubIcon className='h-4 w-4 shrink-0' /> : null}

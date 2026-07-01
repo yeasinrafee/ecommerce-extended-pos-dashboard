@@ -7,7 +7,7 @@ import { ApiResponse } from "@/types/auth";
 import { LuFileSpreadsheet, LuPrinter } from "react-icons/lu";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { PaginationControl } from "@/components/Common/Pagination";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -366,15 +366,33 @@ export default function InventoryReportsPage() {
 
       {/* Tabs */}
       <Tabs value={tab} onValueChange={v => setTab(v)}>
-        <TabsList className="flex-wrap h-auto gap-1 bg-slate-100 p-1 rounded-xl">
-          <TabsTrigger value="activity" className="rounded-lg text-xs">Activity Log</TabsTrigger>
-          <TabsTrigger value="valuation" className="rounded-lg text-xs">Valuation</TabsTrigger>
-          <TabsTrigger value="movements" className="rounded-lg text-xs">Ledger</TabsTrigger>
-          <TabsTrigger value="transfers" className="rounded-lg text-xs">Transfers</TabsTrigger>
-          <TabsTrigger value="damages" className="rounded-lg text-xs">Damages</TabsTrigger>
-          <TabsTrigger value="adjustments" className="rounded-lg text-xs">Adjustments</TabsTrigger>
-          <TabsTrigger value="lowstock" className="rounded-lg text-xs">Low Stock</TabsTrigger>
-        </TabsList>
+        <div className="bg-white border border-slate-200 rounded-t-xl overflow-hidden">
+          <div className="flex flex-wrap">
+            {[
+              { value: "activity",    label: "Activity Log" },
+              { value: "valuation",   label: "Valuation" },
+              // { value: "movements",   label: "Ledger" },
+              { value: "transfers",   label: "Transfers" },
+              { value: "damages",     label: "Damages" },
+              { value: "adjustments", label: "Adjustments" },
+              { value: "lowstock",    label: "Low Stock" },
+            ].map((t) => (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => setTab(t.value)}
+                className={[
+                  "px-5 py-2.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#003d9b]/50",
+                  tab === t.value
+                    ? "bg-[#003d9b] text-white"
+                    : "bg-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50",
+                ].join(" ")}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* ── Activity Log ─────────────────────────────────────────────────────── */}
         <TabsContent value="activity">
