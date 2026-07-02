@@ -175,7 +175,7 @@ export default function AdjustmentForm({ editingAdj }: AdjustmentFormProps) {
 
   const { register, control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<AdjustmentFormValues>({
     resolver: zodResolver(adjustmentFormSchema) as any,
-    defaultValues: { locationId: '', reason: '', items: [{ productId: '', quantityChanged: 1, reason: '' }] },
+    defaultValues: { locationId: '', reason: '', items: [{ productId: '', quantityChanged: 0, reason: '' }] },
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'items' });
@@ -331,7 +331,7 @@ export default function AdjustmentForm({ editingAdj }: AdjustmentFormProps) {
               )}
             </div>
             <Button type="button" variant="outline" size="sm" disabled={!watchedLocationId}
-              onClick={() => { append({ productId: '', quantityChanged: 1, reason: '' }); setErrorItemIndex(null); }}
+              onClick={() => { append({ productId: '', quantityChanged: 0, reason: '' }); setErrorItemIndex(null); }}
               className="text-xs h-8 border-primary/30 text-primary hover:bg-primary/5 font-medium">
               <LuPlus className="h-3.5 w-3.5 mr-1" /> Add Product
             </Button>
@@ -388,8 +388,8 @@ export default function AdjustmentForm({ editingAdj }: AdjustmentFormProps) {
                     const availableOptions = productOptions.filter(o => !otherSelectedIds.has(o.id));
 
                     return (
-                      <tr key={field.id} className={`transition-colors ${isErrorRow ? 'bg-red-50' : 'hover:bg-slate-50/80'}`}>
-                        <td className="px-4 py-3">
+                      <tr key={field.id} className={`transition-colors ${isErrorRow ? 'bg-red-50' : pid ? 'bg-white hover:bg-primary/[0.02]' : 'bg-slate-50/40 hover:bg-slate-50/80'}`}>
+                        <td className={`px-4 py-3 ${pid ? 'border-l-2 border-primary/40' : 'border-l-2 border-transparent'}`}>
                           <ProductCombobox
                             value={pid}
                             onChange={id => { setValue(`items.${index}.productId`, id, { shouldValidate: true }); setErrorItemIndex(null); }}
@@ -406,34 +406,48 @@ export default function AdjustmentForm({ editingAdj }: AdjustmentFormProps) {
                           {isErrorRow && <p className="text-[10px] text-red-600 mt-0.5 font-semibold">Insufficient stock</p>}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <span className={`font-bold text-sm ${prevQty === 0 && pid ? 'text-amber-600' : 'text-slate-600'}`}>
-                            {pid ? prevQty : <span className="text-slate-300">—</span>}
+                          <span className={`font-bold text-sm ${!pid ? 'text-slate-300' : prevQty === 0 ? 'text-amber-600' : 'text-slate-700'}`}>
+                            {pid ? prevQty : '—'}
                           </span>
                         </td>
+                        {/* Add field */}
                         <td className="px-4 py-3">
                           <input type="number" min={0}
                             disabled={!pid || changeQty < 0}
                             placeholder="0"
-                            value={changeQty > 0 ? changeQty : ''}
+                            value={changeQty > 0 ? changeQty : changeQty < 0 ? 0 : ''}
+                            onFocus={e => { if (Number(e.target.value) === 0) e.target.value = ''; }}
                             onChange={e => {
                               const v = e.target.value === '' ? 0 : Math.abs(Number(e.target.value));
                               setValue(`items.${index}.quantityChanged`, v, { shouldValidate: true });
                               setErrorItemIndex(null);
                             }}
-                            className="w-full h-9 text-center font-bold text-sm rounded-lg border outline-none transition-all disabled:opacity-30 disabled:cursor-not-allowed border-green-200 bg-green-50 text-green-700 placeholder:text-green-300 focus:border-green-400 focus:ring-2 focus:ring-green-100"
+                            className={`w-full h-9 text-center font-bold text-sm rounded-lg border outline-none transition-all
+                              ${!pid
+                                ? 'border-slate-200 bg-slate-50 text-slate-300 cursor-not-allowed'
+                                : changeQty < 0
+                                  ? 'border-slate-200 bg-slate-100 text-slate-300 cursor-not-allowed opacity-40'
+                                  : 'border-green-300 bg-green-50 text-green-700 placeholder:text-green-300 focus:border-green-500 focus:ring-2 focus:ring-green-100'}`}
                           />
                         </td>
+                        {/* Deduct field */}
                         <td className="px-4 py-3">
                           <input type="number" min={0}
                             disabled={!pid || changeQty > 0}
                             placeholder="0"
-                            value={changeQty < 0 ? Math.abs(changeQty) : ''}
+                            value={changeQty < 0 ? Math.abs(changeQty) : changeQty > 0 ? 0 : ''}
+                            onFocus={e => { if (Number(e.target.value) === 0) e.target.value = ''; }}
                             onChange={e => {
                               const v = e.target.value === '' ? 0 : Math.abs(Number(e.target.value));
                               setValue(`items.${index}.quantityChanged`, v === 0 ? 0 : -v, { shouldValidate: true });
                               setErrorItemIndex(null);
                             }}
-                            className="w-full h-9 text-center font-bold text-sm rounded-lg border outline-none transition-all disabled:opacity-30 disabled:cursor-not-allowed border-red-200 bg-red-50 text-red-700 placeholder:text-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-100"
+                            className={`w-full h-9 text-center font-bold text-sm rounded-lg border outline-none transition-all
+                              ${!pid
+                                ? 'border-slate-200 bg-slate-50 text-slate-300 cursor-not-allowed'
+                                : changeQty > 0
+                                  ? 'border-slate-200 bg-slate-100 text-slate-300 cursor-not-allowed opacity-40'
+                                  : 'border-red-300 bg-red-50 text-red-700 placeholder:text-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-100'}`}
                           />
                         </td>
                         <td className="px-4 py-3 text-center">

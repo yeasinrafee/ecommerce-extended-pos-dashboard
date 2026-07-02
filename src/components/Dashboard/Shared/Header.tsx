@@ -180,6 +180,7 @@ const Header = ({
               variant="ghost"
               size="icon"
               className="relative bg-gray-100 cursor-pointer"
+              suppressHydrationWarning
             >
               <Bell className="h-5 w-5" />
               {notificationData?.unseenCount !== undefined && notificationData.unseenCount > 0 && (
@@ -242,6 +243,7 @@ const Header = ({
               variant="ghost"
               size="icon"
               className="rounded-full cursor-pointer"
+              suppressHydrationWarning
             >
               <Avatar className="h-10 w-10">
                 <AvatarImage
