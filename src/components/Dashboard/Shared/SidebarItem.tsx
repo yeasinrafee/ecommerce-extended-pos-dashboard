@@ -37,13 +37,22 @@ interface SidebarItemProps {
 /* ─── shared style tokens ─────────────────────────────────────────────────── */
 
 const itemBase =
-  'relative flex items-center gap-3 w-full px-3 py-2.5 text-lg font-medium! leading-5 transition-colors outline-none select-none';
+  'relative flex items-center gap-3 w-full px-3 py-2.5 text-lg leading-5 transition-colors outline-none select-none';
 
-const itemInactive =
+// Top-level item styles
+const topLevelInactive =
+  'font-normal text-slate-600 hover:bg-slate-100 hover:text-slate-900 text-base';
+
+const topLevelActive =
+  'font-bold bg-[#eef2ff] text-base text-[#003d9b] hover:bg-[#e5eaff] hover:text-[#003d9b]' +
+  ' before:absolute before:left-0 before:top-[6px] before:bottom-[6px] before:w-[4px]' +
+  ' before:rounded-full before:bg-[#003d9b] before:content-[""]';
+
+// Sub-item styles
+const subItemInactive =
   'font-normal text-slate-600 hover:bg-slate-100 hover:text-slate-900 text-[14.5px]';
 
-// Active: light indigo bg + bold text + left accent pill clipped to item's rounded corners
-const itemActive =
+const subItemActive =
   'font-bold bg-[#eef2ff] text-base text-[#003d9b] hover:bg-[#e5eaff] hover:text-[#003d9b]' +
   ' before:absolute before:left-0 before:top-[6px] before:bottom-[6px] before:w-[4px]' +
   ' before:rounded-full before:bg-[#003d9b] before:content-[""]';
@@ -199,14 +208,14 @@ const SidebarItem = ({
       {href && !hasSubItems ? (
         <Link
           href={href}
-          className={cn(itemBase, isActive ? itemActive : itemInactive)}
+          className={cn(itemBase, isActive ? topLevelActive : topLevelInactive)}
         >
           <Icon className='h-5 w-5 shrink-0' />
           <span>{label}</span>
         </Link>
       ) : (
         <button
-          className={cn(itemBase, isParentActive ? itemActive : itemInactive)}
+          className={cn(itemBase, isParentActive ? topLevelActive : topLevelInactive)}
           onClick={hasSubItems ? () => setExpanded(!expanded) : onClick}
         >
           <Icon className='h-5 w-5 shrink-0' />
@@ -237,7 +246,7 @@ const SidebarItem = ({
                 className={cn(
                   itemBase,
                   'py-2',
-                  isSubItemActive ? itemActive : itemInactive,
+                  isSubItemActive ? subItemActive : subItemInactive,
                   !isLast && 'border-b border-slate-200',
                 )}
               >
@@ -250,7 +259,7 @@ const SidebarItem = ({
                 className={cn(
                   itemBase,
                   'py-1.5',
-                  isSubItemActive ? itemActive : itemInactive,
+                  isSubItemActive ? subItemActive : subItemInactive,
                   !isLast && 'border-b border-slate-100',
                 )}
               >

@@ -45,7 +45,7 @@ interface SidebarProps {
 const Sidebar = ({
   routes,
   user,
-  title = 'E-commerce Hub',
+  title = 'POS Dashboard',
   logo = <BarChart3 className='h-6 w-6 text-[#3460be]' />,
   mobileOpen = false,
   setMobileOpen,

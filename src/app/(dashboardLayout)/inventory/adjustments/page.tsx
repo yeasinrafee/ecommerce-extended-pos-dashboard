@@ -106,7 +106,7 @@ export default function StockAdjustmentsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
         <div>
           <h1 className="text-xl font-bold text-slate-800">Stock Adjustments</h1>
           <p className="text-xs text-slate-500 mt-0.5">Create a DRAFT, review quantities, then Complete to update stock.</p>
@@ -160,10 +160,13 @@ export default function StockAdjustmentsPage() {
               <thead>
                 <tr className="bg-slate-100 border-b border-slate-300 text-slate-600 font-semibold text-xs uppercase">
                   <th className="p-4">Adjustment #</th>
+                  <th className="p-4">Product</th>
                   <th className="p-4">Location</th>
-                  <th className="p-4 hidden sm:table-cell">Date</th>
-                  <th className="p-4 hidden md:table-cell">Reason</th>
+                  <th className="p-4 text-center">Before</th>
+                  <th className="p-4 text-center">Changed</th>
+                  <th className="p-4 text-center">After</th>
                   <th className="p-4 text-center">Status</th>
+                  <th className="p-4 hidden sm:table-cell text-center">Date</th>
                   <th className="p-4 w-12">Actions</th>
                 </tr>
               </thead>
@@ -171,14 +174,47 @@ export default function StockAdjustmentsPage() {
                 {itemsList.map(adj => (
                   <tr key={adj.id} className="hover:bg-slate-50 transition-colors">
                     <td className="p-4 font-bold text-slate-900">{adj.adjustmentNumber}</td>
+                    <td className="p-4">
+                      {adj.items && adj.items.length > 0 ? (
+                        <div className="max-w-[200px] truncate">
+                          <p className="font-semibold text-slate-900 truncate" title={adj.items.map(i => i.product?.name).filter(Boolean).join(', ')}>
+                            {adj.items.map(i => i.product?.name).filter(Boolean).join(', ')}
+                          </p>
+                          {adj.items.length === 1 && (
+                            <p className="text-[10px] font-mono text-slate-400">{adj.items[0].product?.sku}</p>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
                     <td className="p-4 font-semibold text-slate-900">{adj.location?.name}</td>
-                    <td className="p-4 hidden sm:table-cell text-slate-500">{new Date(adj.adjustmentDate || adj.createdAt).toLocaleDateString()}</td>
-                    <td className="p-4 hidden md:table-cell text-slate-500 max-w-[200px] truncate">{adj.reason || '—'}</td>
+                    <td className="p-4 text-center font-semibold text-slate-600">
+                      {adj.items && adj.items.length > 0
+                        ? adj.items.reduce((s, i) => s + (i.previousQuantity || 0), 0)
+                        : '—'}
+                    </td>
+                    <td className="p-4 text-center">
+                      {adj.items && adj.items.length > 0 ? (() => {
+                        const totalChanged = adj.items.reduce((s, i) => s + (i.quantityChanged || 0), 0);
+                        return (
+                          <span className={`font-bold text-xs px-2.5 py-0.5 rounded-full ${totalChanged > 0 ? 'bg-green-100 text-green-700' : totalChanged < 0 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}`}>
+                            {totalChanged > 0 ? `+${totalChanged}` : totalChanged}
+                          </span>
+                        );
+                      })() : '—'}
+                    </td>
+                    <td className="p-4 text-center font-bold text-primary">
+                      {adj.items && adj.items.length > 0
+                        ? adj.items.reduce((s, i) => s + (i.currentQuantity || 0), 0)
+                        : '—'}
+                    </td>
                     <td className="p-4 text-center">
                       <Badge className={`font-semibold py-0.5 px-2 text-[10px] uppercase rounded-full border-0 ${statusColors[adj.status] || 'bg-slate-100 text-slate-600'}`}>
                         {adj.status}
                       </Badge>
                     </td>
+                    <td className="p-4 hidden sm:table-cell text-slate-500 text-center">{new Date(adj.adjustmentDate || adj.createdAt).toLocaleDateString()}</td>
                     <td className="p-4 text-center">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -265,7 +301,7 @@ export default function StockAdjustmentsPage() {
                         <tr>
                           <th className="px-3 py-2.5">Product</th>
                           <th className="px-3 py-2.5 text-center">Before</th>
-                          <th className="px-3 py-2.5 text-center">Change</th>
+                          <th className="px-3 py-2.5 text-center">Changed</th>
                           <th className="px-3 py-2.5 text-center">After</th>
                           <th className="px-3 py-2.5">Reason</th>
                         </tr>
@@ -278,7 +314,7 @@ export default function StockAdjustmentsPage() {
                               <p className="text-[10px] font-mono text-slate-400">{item.product?.sku}</p>
                             </td>
                             <td className="px-3 py-2.5 text-center font-semibold text-slate-600">
-                              {detailsAdj.status === 'DRAFT' ? '—' : item.previousQuantity}
+                              {item.previousQuantity}
                             </td>
                             <td className="px-3 py-2.5 text-center">
                               <span className={`font-bold text-sm px-2 py-0.5 rounded-full ${item.quantityChanged > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
@@ -286,7 +322,7 @@ export default function StockAdjustmentsPage() {
                               </span>
                             </td>
                             <td className="px-3 py-2.5 text-center font-bold text-primary">
-                              {detailsAdj.status === 'DRAFT' ? '—' : item.currentQuantity}
+                              {item.currentQuantity}
                             </td>
                             <td className="px-3 py-2.5 text-slate-500">{item.reason || '—'}</td>
                           </tr>

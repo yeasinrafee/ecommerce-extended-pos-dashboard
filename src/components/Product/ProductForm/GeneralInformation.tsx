@@ -205,46 +205,54 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
         <p className="mb-2 text-xs text-slate-500">
           Weight and dimensions are optional — used for shipping cost calculations.
         </p>
-        <div className="grid gap-4 md:grid-cols-[1fr_1fr_1fr_1fr_1fr]">
-          <CustomInput
-            label="Weight (g/ml)"
-            type="number"
-            value={weight === null ? "" : weight}
-            onValueChange={(value) => setWeight(value as number | null)}
-            placeholder="Optional"
-            min={0}
-          />
-          <CustomInput
-            label="Length (cm)"
-            type="number"
-            value={lengthCm === null ? "" : lengthCm}
-            onValueChange={(value) => setLengthCm(value as number | null)}
-            placeholder="Optional"
-            min={0}
-          />
-          <CustomInput
-            label="Width (cm)"
-            type="number"
-            value={widthCm === null ? "" : widthCm}
-            onValueChange={(value) => setWidthCm(value as number | null)}
-            placeholder="Optional"
-            min={0}
-          />
-          <CustomInput
-            label="Height (cm)"
-            type="number"
-            value={heightCm === null ? "" : heightCm}
-            onValueChange={(value) => setHeightCm(value as number | null)}
-            placeholder="Optional"
-            min={0}
-          />
-          <CustomSelect
-            name="status"
-            control={control}
-            label="Product Status"
-            requiredMark
-            options={productStatusOptions}
-          />
+        <div className="space-y-4">
+                    {/* Dimensions (Length, Width, Height) — aligned together in a 3-column grid */}
+          <div className="grid gap-4 md:grid-cols-3">
+            <CustomInput
+              label="Length (cm)"
+              type="number"
+              value={lengthCm === null ? "" : lengthCm}
+              onValueChange={(value) => setLengthCm(value as number | null)}
+              placeholder="Optional"
+              min={0}
+            />
+            <CustomInput
+              label="Width (cm)"
+              type="number"
+              value={widthCm === null ? "" : widthCm}
+              onValueChange={(value) => setWidthCm(value as number | null)}
+              placeholder="Optional"
+              min={0}
+            />
+            <CustomInput
+              label="Height (cm)"
+              type="number"
+              value={heightCm === null ? "" : heightCm}
+              onValueChange={(value) => setHeightCm(value as number | null)}
+              placeholder="Optional"
+              min={0}
+            />
+          </div>
+          {/* Weight & Status — aligned together in a 2-column grid */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <CustomInput
+              label="Weight (g/ml)"
+              type="number"
+              value={weight === null ? "" : weight}
+              onValueChange={(value) => setWeight(value as number | null)}
+              placeholder="Optional"
+              min={0}
+            />
+            <CustomSelect
+              name="status"
+              control={control}
+              label="Product Status"
+              requiredMark
+              options={productStatusOptions}
+            />
+          </div>
+
+
         </div>
       </div>
     </div>
