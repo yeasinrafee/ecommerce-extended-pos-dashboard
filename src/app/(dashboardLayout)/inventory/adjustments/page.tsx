@@ -72,6 +72,7 @@ export default function StockAdjustmentsPage() {
       setCompleteTarget(null);
       queryClient.invalidateQueries({ queryKey: ['adjustments'] });
       queryClient.invalidateQueries({ queryKey: ['stocks'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
       const data = (res as any).data?.data;
       if (data?.id) {
         try { setDetailsAdj(await fetchById(data.id)); } catch {}

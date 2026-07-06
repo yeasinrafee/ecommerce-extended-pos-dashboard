@@ -287,23 +287,8 @@ export default function LocationStocksPage() {
 
       {/* Filters */}
       <Card className="p-4 border-slate-100 shadow-sm">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="relative md:col-span-2">
-            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-              <LuSearch className="h-4 w-4" />
-            </span>
-            <input
-              type="text"
-              placeholder="Search product name or SKU..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setPage(1);
-              }}
-              className="pl-9 w-full bg-[#f8fafc] border-slate-200 text-slate-800 text-sm h-10 rounded-xl focus:ring-1 focus:ring-indigo-500 outline-none border"
-            />
-          </div>
-          <select
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+           <select
             value={selectedLocation}
             onChange={(e) => {
               setSelectedLocation(e.target.value);
@@ -318,6 +303,22 @@ export default function LocationStocksPage() {
               </option>
             ))}
           </select>
+          <div className="relative ">
+            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+              <LuSearch className="h-4 w-4" />
+            </span>
+            <input
+              type="text"
+              placeholder="Search product name or SKU..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPage(1);
+              }}
+              className="pl-9 w-full bg-[#f8fafc] border-slate-200 text-slate-800 text-sm h-10 rounded-xl focus:ring-1 focus:ring-indigo-500 outline-none border"
+            />
+          </div>
+         
         </div>
       </Card>
 

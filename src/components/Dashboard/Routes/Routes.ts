@@ -66,7 +66,7 @@ export const routes: RouteItem[] = [
   // --- Orders ---
   {
     icon: LuShoppingCart,
-    label: "Manage Orders",
+    label: "Web Orders",
     href: "/dashboard/orders",
   },
   {

@@ -2,15 +2,15 @@
 
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as zod from "zod";
+import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api";
 import { ApiResponse } from "@/types/auth";
 import {
   LuRefreshCw,
   LuPlus,
-  LuFileText,
   LuPackageSearch,
   LuTriangleAlert,
   LuSlidersHorizontal,
@@ -29,27 +29,6 @@ import {
 import { PaginationControl } from "@/components/Common/Pagination";
 
 // ─── Validation schemas ────────────────────────────────────────────────────────
-const poFormSchema = zod.object({
-  supplierId: zod.coerce.number().min(1, "Supplier is required"),
-  locationId: zod.string().min(1, "Location is required"),
-  orderDate: zod.string().min(1, "Order date is required"),
-  expectedDate: zod.string().optional(),
-  notes: zod.string().optional(),
-  items: zod
-    .array(
-      zod.object({
-        productId: zod.string().min(1),
-        productName: zod.string().optional(),
-        sku: zod.string().nullable().optional(),
-        quantity: zod.number().min(1),
-        unitPrice: zod.number().min(0),
-        taxPercent: zod.number().default(0),
-        discountPercent: zod.number().default(0),
-      }),
-    )
-    .min(1, "Select at least one item"),
-});
-
 const lowStockConfigSchema = zod.object({
   productId: zod.string().min(1, "Product is required"),
   locationId: zod.string().nullable().optional(),
@@ -57,7 +36,6 @@ const lowStockConfigSchema = zod.object({
   reorderQuantity: zod.coerce.number().min(0, "Must be positive"),
 });
 
-type POFormValues = zod.infer<typeof poFormSchema>;
 type LowStockConfigFormValues = zod.infer<typeof lowStockConfigSchema>;
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -81,9 +59,10 @@ export default function LowStockAlertPage() {
   const limit = 10;
   const [selectedLocation, setSelectedLocation] = useState("");
 
-  // PO modal
+  const router = useRouter();
+
+  // PO selection
   const [selectedItems, setSelectedItems] = useState<Record<string, boolean>>({});
-  const [poOpen, setPoOpen] = useState(false);
 
   // Threshold config modal
   const [configOpen, setConfigOpen] = useState(false);
@@ -114,42 +93,7 @@ export default function LowStockAlertPage() {
     },
   });
 
-  const { data: suppliersRes } = useQuery({
-    queryKey: ["low-stock-alert", "suppliers"],
-    queryFn: async () => {
-      const r = await apiClient.get<ApiResponse<any[]>>("/suppliers/get-all");
-      return r.data.data as any[];
-    },
-  });
-
   // ── Mutations ────────────────────────────────────────────────────────────────
-  const createPOMutation = useMutation({
-    mutationFn: async (payload: POFormValues) => {
-      const body = {
-        supplierId: payload.supplierId,
-        locationId: payload.locationId,
-        orderDate: payload.orderDate,
-        expectedDate: payload.expectedDate || undefined,
-        notes: payload.notes || undefined,
-        items: payload.items.map(({ productId, quantity, unitPrice, taxPercent, discountPercent }) => ({
-          productId, quantity, unitPrice, taxPercent, discountPercent,
-        })),
-      };
-      const r = await apiClient.post<ApiResponse<any>>("/purchase-orders/create", body);
-      return r.data;
-    },
-    onSuccess: () => {
-      toast.success("Purchase Order generated successfully");
-      setPoOpen(false);
-      setSelectedItems({});
-      queryClient.invalidateQueries({ queryKey: ["purchases"] });
-      queryClient.invalidateQueries({ queryKey: ["low-stock-alert"] });
-    },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || err?.message || "Failed to create PO");
-    },
-  });
-
   const updateThresholdMutation = useMutation({
     mutationFn: async (payload: LowStockConfigFormValues) => {
       const r = await apiClient.post<ApiResponse<any>>("/stocks/low-stock-configs", payload);
@@ -166,17 +110,6 @@ export default function LowStockAlertPage() {
       toast.error(err?.response?.data?.message || err?.message || "Failed to configure threshold");
     },
   });
-
-  // ── PO form ──────────────────────────────────────────────────────────────────
-  const poForm = useForm<POFormValues>({
-    resolver: zodResolver(poFormSchema) as any,
-    defaultValues: {
-      supplierId: 0, locationId: "", orderDate: new Date().toISOString().substring(0, 10),
-      expectedDate: "", notes: "Generated from Low Stock Alert.", items: [],
-    },
-  });
-  const { fields } = useFieldArray({ control: poForm.control, name: "items" });
-  const watchedItems = poForm.watch("items");
 
   // ── Config form ──────────────────────────────────────────────────────────────
   const configForm = useForm<LowStockConfigFormValues>({
@@ -195,21 +128,18 @@ export default function LowStockAlertPage() {
   const handleOpenBulkPO = () => {
     const chosen = itemsList.filter((item) => !!selectedItems[`${item.productId}-${item.locationId}`]);
     if (chosen.length === 0) { toast.error("Select at least one item"); return; }
-    poForm.reset({
-      supplierId: 0,
-      locationId: chosen[0].locationId,
-      orderDate: new Date().toISOString().substring(0, 10),
-      expectedDate: "",
-      notes: "Generated from Low Stock Alert.",
-      items: chosen.map((item) => ({
-        productId: item.productId,
-        productName: item.productName,
-        sku: item.sku,
-        quantity: item.suggestedReorderQuantity || item.reorderQuantity || 50,
-        unitPrice: 0, taxPercent: 0, discountPercent: 0,
-      })),
-    });
-    setPoOpen(true);
+    
+    const locationId = chosen[0].locationId;
+    const items = chosen.map((item) => ({
+      productId: item.productId,
+      quantity: item.suggestedReorderQuantity || item.reorderQuantity || 50,
+    }));
+    
+    const params = new URLSearchParams();
+    params.set("locationId", locationId);
+    params.set("items", JSON.stringify(items));
+    
+    router.push(`/inventory/purchases/new?${params.toString()}`);
   };
 
   const handleOpenConfig = (item: LowStockAlert) => {
@@ -222,10 +152,6 @@ export default function LowStockAlertPage() {
     });
     setConfigOpen(true);
   };
-
-  const calculatedTotal = React.useMemo(() => {
-    return (watchedItems ?? []).reduce((sum, item) => sum + (item.quantity || 0) * (item.unitPrice || 0), 0);
-  }, [watchedItems]);
 
   return (
     <div className="space-y-6">
@@ -243,7 +169,7 @@ export default function LowStockAlertPage() {
         <Button
           onClick={handleOpenBulkPO}
           disabled={selectedCount === 0}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 disabled:opacity-50"
+          className="bg-primary hover:bg-primary/90 text-white font-medium text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 disabled:opacity-50"
         >
           <LuPlus className="h-4 w-4" />
           Generate PO for Selected ({selectedCount})
@@ -284,7 +210,7 @@ export default function LowStockAlertPage() {
                   <th className="p-4 w-12 text-center">
                     <input
                       type="checkbox"
-                      className="accent-indigo-600 h-4 w-4 cursor-pointer"
+                      className="accent-primary h-4 w-4 cursor-pointer"
                       checked={itemsList.length > 0 && itemsList.every((item) => selectedItems[`${item.productId}-${item.locationId}`])}
                       onChange={(e) => {
                         const next: Record<string, boolean> = {};
@@ -313,12 +239,12 @@ export default function LowStockAlertPage() {
                     <tr
                       key={key}
                       onClick={() => toggleSelect(key)}
-                      className={`cursor-pointer transition-colors ${isSelected ? "bg-indigo-50/60" : "hover:bg-slate-50"}`}
+                      className={`cursor-pointer transition-colors ${isSelected ? "bg-primary/5" : "hover:bg-slate-50"}`}
                     >
                       <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
                         <input
                           type="checkbox"
-                          className="accent-indigo-600 h-4 w-4 cursor-pointer"
+                          className="accent-primary h-4 w-4 cursor-pointer"
                           checked={isSelected}
                           onChange={() => toggleSelect(key)}
                         />
@@ -333,7 +259,7 @@ export default function LowStockAlertPage() {
                       </td>
                       <td className="p-4 text-center font-medium text-slate-600">{minQty}</td>
                       <td className="p-4 text-center">
-                        <span className="font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg">
+                        <span className="font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-lg">
                           {item.suggestedReorderQuantity ?? item.reorderQuantity}
                         </span>
                       </td>
@@ -346,7 +272,7 @@ export default function LowStockAlertPage() {
                         <Button
                           variant="ghost"
                           onClick={() => handleOpenConfig(item)}
-                          className="text-xs text-indigo-600 hover:bg-indigo-50 font-medium px-3 py-1.5 rounded-xl border border-slate-200"
+                          className="text-xs text-primary hover:bg-primary/5 font-medium px-3 py-1.5 rounded-xl border border-slate-200"
                         >
                           <LuSlidersHorizontal className="mr-1.5 h-3.5 w-3.5" />
                           Config
@@ -369,130 +295,6 @@ export default function LowStockAlertPage() {
           </div>
         )}
       </Card>
-
-      {/* ── Generate PO Modal ──────────────────────────────────────────────────── */}
-      <Dialog open={poOpen} onOpenChange={setPoOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <LuFileText className="h-5 w-5 text-indigo-600" />
-              Generate Purchase Order
-            </DialogTitle>
-          </DialogHeader>
-
-          <form onSubmit={poForm.handleSubmit((v) => createPOMutation.mutate(v))} className="space-y-5 pt-2">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="text-xs font-semibold text-slate-600 mb-1 block">Supplier *</label>
-                <select
-                  {...poForm.register("supplierId")}
-                  className="w-full bg-slate-50 border-slate-200 text-slate-800 text-sm h-10 rounded-xl outline-none border px-3"
-                >
-                  <option value={0}>Select Supplier</option>
-                  {suppliersRes?.map((sup: any) => (
-                    <option key={sup.id} value={sup.id}>{sup.name || sup.companyName}</option>
-                  ))}
-                </select>
-                {poForm.formState.errors.supplierId && (
-                  <p className="text-red-500 text-[10px] mt-0.5">{poForm.formState.errors.supplierId.message}</p>
-                )}
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-600 mb-1 block">Target Location *</label>
-                <select
-                  {...poForm.register("locationId")}
-                  className="w-full bg-slate-50 border-slate-200 text-slate-800 text-sm h-10 rounded-xl outline-none border px-3"
-                >
-                  <option value="">Select Location</option>
-                  {locationsRes?.map((loc: any) => (
-                    <option key={loc.id} value={loc.id}>{loc.name}</option>
-                  ))}
-                </select>
-                {poForm.formState.errors.locationId && (
-                  <p className="text-red-500 text-[10px] mt-0.5">{poForm.formState.errors.locationId.message}</p>
-                )}
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-600 mb-1 block">Order Date *</label>
-                <input type="date" {...poForm.register("orderDate")} className="w-full bg-slate-50 border-slate-200 text-slate-800 text-sm h-10 rounded-xl outline-none border px-3" />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-600 mb-1 block">Expected Delivery</label>
-                <input type="date" {...poForm.register("expectedDate")} className="w-full bg-slate-50 border-slate-200 text-slate-800 text-sm h-10 rounded-xl outline-none border px-3" />
-              </div>
-              <div className="md:col-span-2">
-                <label className="text-xs font-semibold text-slate-600 mb-1 block">Notes</label>
-                <input type="text" {...poForm.register("notes")} className="w-full bg-slate-50 border-slate-200 text-slate-800 text-sm h-10 rounded-xl outline-none border px-3" />
-              </div>
-            </div>
-
-            {/* Items */}
-            <div className="space-y-2">
-              <h3 className="text-sm font-semibold text-slate-800">
-                Order Items <span className="ml-1 text-xs font-normal text-slate-400">({fields.length} product{fields.length !== 1 ? "s" : ""})</span>
-              </h3>
-              <div className="border border-slate-200 rounded-xl overflow-hidden text-xs">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold">
-                    <tr>
-                      <th className="p-3">Product</th>
-                      <th className="p-3 w-28 text-center">Qty</th>
-                      <th className="p-3 w-32 text-center">Unit Price</th>
-                      <th className="p-3 w-24 text-center">Tax %</th>
-                      <th className="p-3 w-28 text-right">Line Total</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {fields.map((field, index) => {
-                      const qty = watchedItems?.[index]?.quantity || 0;
-                      const price = watchedItems?.[index]?.unitPrice || 0;
-                      const tax = watchedItems?.[index]?.taxPercent || 0;
-                      const lineTotal = qty * price * (1 + tax / 100);
-                      return (
-                        <tr key={field.id} className="hover:bg-slate-50">
-                          <td className="p-3">
-                            <p className="font-semibold text-slate-900">{watchedItems?.[index]?.productName || field.productName}</p>
-                            {(watchedItems?.[index]?.sku ?? field.sku) && (
-                              <p className="text-[10px] text-slate-400 font-mono mt-0.5">SKU: {watchedItems?.[index]?.sku ?? field.sku}</p>
-                            )}
-                            <input type="hidden" {...poForm.register(`items.${index}.productId`)} />
-                            <input type="hidden" {...poForm.register(`items.${index}.productName`)} />
-                            <input type="hidden" {...poForm.register(`items.${index}.sku`)} />
-                          </td>
-                          <td className="p-3">
-                            <input type="number" min={1} {...poForm.register(`items.${index}.quantity`, { valueAsNumber: true })} className="w-full border border-slate-200 rounded-lg p-1.5 text-center font-bold bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400" />
-                          </td>
-                          <td className="p-3">
-                            <input type="number" min={0} step="0.01" {...poForm.register(`items.${index}.unitPrice`, { valueAsNumber: true })} className="w-full border border-slate-200 rounded-lg p-1.5 text-right bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400" />
-                          </td>
-                          <td className="p-3">
-                            <input type="number" min={0} max={100} step="0.1" {...poForm.register(`items.${index}.taxPercent`, { valueAsNumber: true })} className="w-full border border-slate-200 rounded-lg p-1.5 text-center bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400" />
-                          </td>
-                          <td className="p-3 text-right font-bold text-slate-800">৳{lineTotal.toFixed(2)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <DialogFooter className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="text-sm text-slate-700">
-                <span className="text-slate-500">Estimated Total: </span>
-                <span className="font-bold text-slate-900 text-base">৳{calculatedTotal.toFixed(2)}</span>
-              </div>
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={() => setPoOpen(false)} className="rounded-xl">Cancel</Button>
-                <Button type="submit" disabled={createPOMutation.isPending} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl">
-                  {createPOMutation.isPending && <LuRefreshCw className="animate-spin h-4 w-4 mr-2" />}
-                  Confirm &amp; Generate PO
-                </Button>
-              </div>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       {/* ── Threshold Config Modal ─────────────────────────────────────────────── */}
       <Dialog open={configOpen} onOpenChange={setConfigOpen}>
@@ -525,7 +327,7 @@ export default function LowStockAlertPage() {
               </div>
               <DialogFooter className="pt-4">
                 <Button type="button" variant="outline" onClick={() => setConfigOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={updateThresholdMutation.isPending} className="bg-indigo-600 text-white">
+                <Button type="submit" disabled={updateThresholdMutation.isPending} className="bg-primary hover:bg-primary/90 text-white">
                   {updateThresholdMutation.isPending && <LuRefreshCw className="animate-spin h-4 w-4 mr-2" />}
                   Save Configuration
                 </Button>

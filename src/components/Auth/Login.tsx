@@ -25,7 +25,8 @@ import OtpInput from "@/components/FormFields/OtpInput";
 const ERROR_MESSAGE =
   "Login failed. Please verify your credentials and try again.";
 
-const COMPANY_NAME = process.env.NEXT_PUBLIC_COMPANY_NAME ?? "Login";
+// Falls back to "POS Dashboard" (rendered in caps via CSS) when no env value is set.
+const COMPANY_NAME = process.env.NEXT_PUBLIC_COMPANY_NAME ?? "POS Dashboard";
 
 const resolveErrorMessage = (error: unknown) => {
   if (axios.isAxiosError(error)) {
@@ -40,6 +41,13 @@ const resolveErrorMessage = (error: unknown) => {
 };
 
 type ViewState = "login" | "forgot-password-otp" | "reset-password";
+
+// ---- design tokens (kept local so this file stays drop-in) ----
+const INK = "#181B20";
+const PANEL = "#1F232B";
+const REGISTER_GREEN = "#0E7C5A";
+const REGISTER_GREEN_DARK = "#0B6748";
+const MUTED = "#8A93A3";
 
 const Login = () => {
   const router = useRouter();
@@ -285,68 +293,101 @@ const Login = () => {
     } catch (err: any) {}
   };
 
+  // ---------------------------------------------------------------
+  // Card content per view — the outer "receipt" shell (below) stays
+  // the same for all three states, only the inside content swaps.
+  // ---------------------------------------------------------------
+
+  let cardContent: React.ReactNode;
+
   if (view === "forgot-password-otp") {
-    return (
-      <form
-        onSubmit={handleVerifyOtp}
-        className="space-y-6 border shadow-sm p-6 rounded-md border-slate-200 w-full max-w-sm md:max-w-150"
-      >
-        <div className="flex flex-col gap-1">
-          <span className="text-lg font-semibold text-slate-900">
-            Verify OTP
+    cardContent = (
+      <form onSubmit={handleVerifyOtp} className="space-y-6">
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#0E7C5A]">
+            Step 2 of 3
           </span>
-          <span className="text-xs text-slate-500">
-            Enter the OTP sent to {forgotEmail}
+          <span className="text-lg font-semibold text-slate-900">
+            Enter verification code
+          </span>
+          <span className="text-sm text-slate-500">
+            We sent a 6-digit code to{" "}
+            <span className="font-medium text-slate-700">{forgotEmail}</span>
           </span>
         </div>
+
         <OtpInput
           length={6}
           value={otpCode}
           onChange={setOtpCode}
           expiry={otpExpiry}
         />
-        <div className="flex items-center justify-center gap-x-2 text-sm text-brand-primary font-semibold mt-2">
-          <span className="text-xs">Didn't receive the code?</span>
+
+        {error && (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2">
+            {error}
+          </p>
+        )}
+
+        <div className="flex items-center justify-center gap-x-2 text-sm">
+          <span className="text-xs text-slate-500">
+            Didn&apos;t get the code?
+          </span>
           <button
             type="button"
             onClick={handleResendOtp}
             disabled={sendOtpMutation.isPending || otpSecondsLeft > 0}
             aria-disabled={sendOtpMutation.isPending || otpSecondsLeft > 0}
-            className={`text-sm font-medium ${sendOtpMutation.isPending || otpSecondsLeft > 0 ? "opacity-50 cursor-not-allowed" : "hover:cursor-pointer"}`}
+            className={`font-mono text-xs font-semibold text-[#0E7C5A] ${
+              sendOtpMutation.isPending || otpSecondsLeft > 0
+                ? "opacity-50 cursor-not-allowed"
+                : "hover:text-[#0B6748] cursor-pointer"
+            }`}
           >
             {sendOtpMutation.isPending
               ? "Sending..."
               : otpSecondsLeft > 0
-                ? `Resend OTP (${formatTime(otpSecondsLeft)})`
-                : "Resend OTP"}
+                ? `Resend in ${formatTime(otpSecondsLeft)}`
+                : "Resend code"}
           </button>
         </div>
-        <div className="flex gap-2 mt-4">
+
+        {/* receipt-style dashed divider, like a subtotal line */}
+        <div className="border-t border-dashed border-slate-300 pt-5">
           <CustomButton
             type="submit"
             loading={verifyOtpMutation.isPending}
             disabled={otpCode.length < 6}
-            className="w-full"
+            className="w-full !bg-[#0E7C5A] hover:!bg-[#0B6748] !text-white disabled:!opacity-50"
           >
-            Verify
+            Verify code
           </CustomButton>
+          <button
+            type="button"
+            onClick={() => {
+              setError(null);
+              setView("login");
+            }}
+            className="mt-3 w-full text-center text-xs font-medium text-slate-500 hover:text-slate-700"
+          >
+            ← Back to sign in
+          </button>
         </div>
       </form>
     );
-  }
-
-  if (view === "reset-password") {
-    return (
-      <form
-        onSubmit={handleSubmit(onSubmitReset)}
-        className="space-y-6 border shadow-sm border-slate-200 rounded p-4 w-full max-w-sm md:max-w-100"
-      >
-        <div className="flex flex-col gap-1">
-          <span className="text-lg font-semibold text-slate-900">
-            New Password
+  } else if (view === "reset-password") {
+    cardContent = (
+      <form onSubmit={handleSubmit(onSubmitReset)} className="space-y-6">
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#0E7C5A]">
+            Step 3 of 3
           </span>
-          <span className="text-xs text-slate-500">
-            Enter your new password below.
+          <span className="text-lg font-semibold text-slate-900">
+            Set a new password
+          </span>
+          <span className="text-sm text-slate-500">
+            Use at least 8 characters. Make it one you haven&apos;t used
+            before.
           </span>
         </div>
 
@@ -355,7 +396,7 @@ const Login = () => {
           control={control}
           render={({ field }) => (
             <CustomPasswordInput
-              label="New Password"
+              label="New password"
               value={field.value}
               onChange={(e) => field.onChange(e.target.value)}
               onValueChange={(v) => field.onChange(v ?? "")}
@@ -370,7 +411,7 @@ const Login = () => {
           control={control}
           render={({ field }) => (
             <CustomPasswordInput
-              label="Confirm Password"
+              label="Confirm new password"
               value={field.value}
               onChange={(e) => field.onChange(e.target.value)}
               onValueChange={(v) => field.onChange(v ?? "")}
@@ -380,13 +421,80 @@ const Login = () => {
           )}
         />
 
-        <div className="flex gap-2 mt-4">
+        {error && (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2">
+            {error}
+          </p>
+        )}
+
+        <div className="border-t border-dashed border-slate-300 pt-5">
           <CustomButton
             type="submit"
             loading={resetPasswordMutation.isPending}
-            className="w-full"
+            className="w-full !bg-[#0E7C5A] hover:!bg-[#0B6748] !text-white"
           >
-            Reset
+            Save new password
+          </CustomButton>
+        </div>
+      </form>
+    );
+  } else {
+    cardContent = (
+      <form onSubmit={handleLoginSubmit} className="space-y-6">
+        <div className="flex flex-col gap-1.5 mb-2">
+          <span className="text-lg font-semibold text-slate-900">
+            Sign in
+          </span>
+          <span className="text-sm text-slate-500">
+            Welcome back — pick up your shift where you left off.
+          </span>
+        </div>
+
+        <CustomInput
+          label="Email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+
+        <CustomPasswordInput
+          label="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+
+        <div className="flex justify-end -mt-2">
+          <button
+            type="button"
+            onClick={handleForgotPasswordFromLogin}
+            disabled={sendOtpMutation.isPending}
+            aria-disabled={sendOtpMutation.isPending}
+            className={`text-xs font-semibold text-[#0E7C5A] ${
+              sendOtpMutation.isPending
+                ? "opacity-50 cursor-not-allowed"
+                : "hover:text-[#0B6748] cursor-pointer"
+            }`}
+          >
+            {sendOtpMutation.isPending ? "Sending..." : "Forgot password?"}
+          </button>
+        </div>
+
+        {error && (
+          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2">
+            {error}
+          </p>
+        )}
+
+        {/* receipt-style dashed divider, like the line above a total */}
+        <div className="border-t border-dashed border-slate-300 pt-5">
+          <CustomButton
+            type="submit"
+            loading={loading}
+            className="w-full !bg-[#003d9b] hover:!bg-[#003d9b]/90 !text-white"
+          >
+            Sign in
           </CustomButton>
         </div>
       </form>
@@ -394,62 +502,119 @@ const Login = () => {
   }
 
   return (
-    <form
-      onSubmit={handleLoginSubmit}
-      className="space-y-6 border shadow-sm border-slate-200 bg-white rounded p-6 w-full max-w-[340px] md:max-w-[480px]"
-    >
-      {companyInfo?.logo ? (
-        <div className="mx-auto mb-4 w-full flex items-center justify-center">
-          <Image
-            src={companyInfo.logo}
-            alt={companyInfo?.shortDescription || "Company logo"}
-            width={800}
-            height={800}
-            className="size-[80px] object-contain"
-          />
-        </div>
-      ) : (
-        <div className="mx-auto mb-10 flex items-center justify-center">
-          <span className="text-2xl font-semibold tracking-wide text-slate-900">
-            {COMPANY_NAME}
+    <div className="min-h-screen w-full flex bg-[#F5F6F8]">
+      {/* perforated "receipt" edge, scoped to this page only */}
+      <style>{`
+        .pos-receipt-card { position: relative; }
+        .pos-receipt-card::before {
+          content: "";
+          position: absolute;
+          top: -9px;
+          left: 0;
+          right: 0;
+          height: 18px;
+          background-image: radial-gradient(circle at 9px 9px, transparent 8px, #F5F6F8 9px);
+          background-size: 18px 18px;
+          background-repeat: repeat-x;
+        }
+        .pos-barcode {
+          background-image: repeating-linear-gradient(
+            90deg,
+            rgba(255,255,255,0.9) 0px,
+            rgba(255,255,255,0.9) 2px,
+            transparent 2px,
+            transparent 5px,
+            rgba(255,255,255,0.55) 5px,
+            rgba(255,255,255,0.55) 6px,
+            transparent 6px,
+            transparent 10px
+          );
+        }
+      `}</style>
+
+      {/* Left: brand / register panel — hidden on small screens */}
+      <div
+        className="hidden lg:flex lg:w-[42%] relative flex-col justify-between p-12 overflow-hidden"
+        style={{ backgroundColor: PANEL }}
+      >
+        <div className="pos-barcode absolute inset-x-12 top-12 h-10 opacity-20" />
+
+        <div className="relative flex items-center gap-3">
+          {companyInfo?.logo ? (
+            <Image
+              src={companyInfo.logo}
+              alt={companyInfo?.shortDescription || "Company logo"}
+              width={40}
+              height={40}
+              className="size-10 object-contain rounded"
+            />
+          ) : (
+            <div
+              className="size-10 rounded-md flex items-center justify-center font-mono text-sm font-bold text-white"
+              style={{ backgroundColor: REGISTER_GREEN }}
+            >
+              $
+            </div>
+          )}
+          <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white">
+            {companyInfo?.shortDescription || COMPANY_NAME}
           </span>
         </div>
-      )}
-      {/* <h2 className="text-center text-xl font-bold text-slate-900 mb-2">
-        Login
-      </h2> */}
-      <CustomInput
-        label="Email"
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        required
-      />
 
-      <CustomPasswordInput
-        label="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        required
-      />
+        <div className="relative max-w-sm">
+          <p className="text-3xl font-bold leading-tight text-white tracking-tight">
+            Every sale, every shift,
+            <br />
+            one register.
+          </p>
+          <p className="mt-4 text-sm leading-relaxed" style={{ color: MUTED }}>
+            Sign in to track orders, manage inventory, and close out the till
+            without missing a beat.
+          </p>
+        </div>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
-
-      <CustomButton type="submit" loading={loading} className="w-full">
-        Login
-      </CustomButton>
-      <div className="flex justify-center">
-        <button
-          type="button"
-          onClick={handleForgotPasswordFromLogin}
-          disabled={sendOtpMutation.isPending}
-          aria-disabled={sendOtpMutation.isPending}
-          className={`text-sm font-medium ${sendOtpMutation.isPending ? "opacity-50 cursor-not-allowed" : "hover:cursor-pointer"}`}
-        >
-          {sendOtpMutation.isPending ? "Sending..." : "Forgot password?"}
-        </button>
+        <div className="relative flex items-center gap-2 font-mono text-[11px]" style={{ color: MUTED }}>
+          <span className="inline-block size-1.5 rounded-full" style={{ backgroundColor: REGISTER_GREEN }} />
+          Secure, encrypted sign-in
+        </div>
       </div>
-    </form>
+
+      {/* Right: form panel */}
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-10">
+        <div className="w-full max-w-[420px]">
+          {/* mobile-only brand mark */}
+          <div className="lg:hidden mb-8 flex flex-col items-center gap-3">
+            {companyInfo?.logo ? (
+              <Image
+                src={companyInfo.logo}
+                alt={companyInfo?.shortDescription || "Company logo"}
+                width={56}
+                height={56}
+                className="size-14 object-contain"
+              />
+            ) : (
+              <div
+                className="size-12 rounded-md flex items-center justify-center font-mono text-base font-bold text-white"
+                style={{ backgroundColor: REGISTER_GREEN }}
+              >
+                $
+              </div>
+            )}
+            <span className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-800">
+              {companyInfo?.shortDescription || COMPANY_NAME}
+            </span>
+          </div>
+
+          <div className="pos-receipt-card bg-white rounded-b-xl shadow-[0_20px_45px_-15px_rgba(24,27,32,0.25)] border border-slate-200/70 px-7 sm:px-9 pt-9 pb-8">
+            {cardContent}
+          </div>
+
+          <p className="mt-6 text-center text-xs text-slate-400">
+            Trouble signing in? Contact your store administrator.
+          </p>
+        </div>
+      </div>
+    </div>
   );
 };
 
