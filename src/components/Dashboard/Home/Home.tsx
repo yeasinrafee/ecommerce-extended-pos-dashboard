@@ -60,22 +60,22 @@ const Home = () => {
         </h1>
       </div>
 
-      <div className="grid grid-cols-2 lg:flex lg:justify-start gap-3 font-medium items-end">
-        <div className="w-full lg:w-56">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 font-medium items-end">
+        <div className="w-full">
           <CustomDatePicker
             label="Start Date"
             value={startDate ?? null}
             onChange={(date) => setStartDate(date ?? undefined)}
           />
         </div>
-        <div className="w-full lg:w-56">
+        <div className="w-full">
           <CustomDatePicker
             label="End Date"
             value={endDate ?? null}
             onChange={(date) => setEndDate(date ?? undefined)}
           />
         </div>
-        <div className="w-full lg:w-40">
+        <div className="w-full">
           <CustomSelect
             triggerClassName="bg-white"
             name="month"
@@ -85,7 +85,7 @@ const Home = () => {
             placeholder="Select Month"
           />
         </div>
-        <div className="w-full lg:w-32">
+        <div className="w-full">
           <CustomSelect
             triggerClassName="bg-white"
             name="year"

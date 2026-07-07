@@ -591,7 +591,7 @@ const CreatePosOrder: React.FC = () => {
                     setSelectedStoreId(v === "__none__" ? "" : v)
                   }
                 >
-                  <SelectTrigger className="h-8 w-[140px] sm:w-[180px] bg-white border-gray-300 rounded-full text-xs sm:text-sm shadow-none! focus:ring-1 focus:ring-blue-300">
+                  <SelectTrigger className="h-8 w-[140px] sm:w-[180px] bg-white border-gray-300 rounded-full text-xs sm:text-sm shadow-none! focus:ring-1 focus:ring-primary/30">
                     <SelectValue placeholder="Select Store" />
                   </SelectTrigger>
                   <SelectContent
@@ -619,7 +619,7 @@ const CreatePosOrder: React.FC = () => {
               placeholder="Search product name or SKU..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className="w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 text-sm text-gray-900 rounded-full focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all"
+              className="w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 text-sm text-gray-900 rounded-full focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
             />
             {searchInput && (
               <button
@@ -638,12 +638,12 @@ const CreatePosOrder: React.FC = () => {
               className={cn(
                 "mt-2 flex items-center gap-2 px-3 py-1.5 rounded-sm text-xs font-medium border",
                 barcodeStatus.state === "scanning"
-                  ? "bg-blue-50 border-blue-200 text-blue-700"
+                  ? "bg-primary/5 border-primary/20 text-primary"
                   : "bg-red-50 border-red-200 text-red-700",
               )}
             >
               {barcodeStatus.state === "scanning" ? (
-                <span className="size-3 rounded-full border-2 border-blue-400 border-t-blue-700 animate-spin shrink-0" />
+                <span className="size-3 rounded-full border-2 border-primary/40 border-t-primary animate-spin shrink-0" />
               ) : (
                 <X className="size-3 shrink-0" />
               )}
@@ -673,8 +673,8 @@ const CreatePosOrder: React.FC = () => {
                 className={cn(
                   "px-3 sm:px-4 py-1 sm:py-1.5 text-xs sm:text-sm font-semibold whitespace-nowrap rounded-full border transition-colors",
                   !activeCategory
-                    ? "bg-blue-700 border-blue-700 text-white"
-                    : "bg-white border-gray-300 text-gray-700 hover:border-blue-400 hover:text-blue-600",
+                    ? "bg-primary border-primary text-white"
+                    : "bg-white border-gray-300 text-gray-700 hover:border-primary/50 hover:text-primary",
                 )}
               >
                 All Categories
@@ -686,8 +686,8 @@ const CreatePosOrder: React.FC = () => {
                   className={cn(
                     "px-3 sm:px-4 py-1 sm:py-1.5 text-xs sm:text-sm font-semibold whitespace-nowrap rounded-full border transition-colors",
                     activeCategory === cat
-                      ? "bg-blue-700 border-blue-700 text-white"
-                      : "bg-white border-gray-300 text-gray-700 hover:border-blue-400 hover:text-blue-600",
+                      ? "bg-primary border-primary text-white"
+                      : "bg-white border-gray-300 text-gray-700 hover:border-primary/50 hover:text-primary",
                   )}
                 >
                   {cat}
@@ -742,16 +742,16 @@ const CreatePosOrder: React.FC = () => {
                     className={cn(
                       "group flex flex-col rounded-lg border overflow-hidden cursor-pointer transition-all",
                       isActive
-                        ? "border-blue-500 ring-2 ring-blue-400 shadow-md bg-white"
+                        ? "border-primary ring-2 ring-primary/40 shadow-md bg-white"
                         : inCart
-                          ? "border-blue-300 ring-1 ring-blue-200 shadow-sm hover:shadow-md bg-white"
+                          ? "border-primary/30 ring-1 ring-primary/20 shadow-sm hover:shadow-md bg-white"
                           : "border-gray-200 shadow-sm hover:border-gray-300 hover:shadow-md bg-white",
                     )}
                   >
                     {/* Image area */}
                     <div className={cn(
                       "relative overflow-hidden rounded-t-lg p-2",
-                      inCart ? "bg-blue-50" : "bg-gray-50",
+                      inCart ? "bg-primary/5" : "bg-gray-50",
                     )}>
                       <div className="relative w-full aspect-4/3 rounded-md overflow-hidden">
                         {product.image ? (
@@ -785,7 +785,7 @@ const CreatePosOrder: React.FC = () => {
 
                         {/* In-cart badge — top left */}
                         {inCart && (
-                          <div className="absolute top-1.5 left-1.5 bg-blue-600 text-white px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold rounded-full flex items-center gap-0.5 leading-none shadow-sm">
+                          <div className="absolute top-1.5 left-1.5 bg-primary text-white px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold rounded-full flex items-center gap-0.5 leading-none shadow-sm">
                             <Check className="size-2.5" /> {cartQty}
                           </div>
                         )}
@@ -795,21 +795,21 @@ const CreatePosOrder: React.FC = () => {
                     {/* Info */}
                     <div className={cn(
                       "px-2.5 py-2 sm:px-3 sm:py-2.5 flex flex-col gap-0.5 flex-1",
-                      inCart ? "bg-blue-50/30" : "bg-white",
+                      inCart ? "bg-primary/5 bg-opacity-30" : "bg-white",
                     )}>
                       <p className="text-[10px] sm:text-[11px] text-gray-400 font-medium uppercase tracking-wide truncate">
                         SKU: {product.sku || "N/A"}
                       </p>
                       <h3 className={cn(
                         "text-xs sm:text-sm font-bold leading-snug line-clamp-2 flex-1",
-                        inCart ? "text-blue-900" : "text-gray-900",
+                        inCart ? "text-primary" : "text-gray-900",
                       )}>
                         {product.name}
                       </h3>
 
                       <div className="flex items-center justify-between mt-1.5">
                         <div className="flex flex-col min-w-0">
-                          <span className="text-sm sm:text-base font-bold text-blue-700 leading-none">
+                          <span className="text-sm sm:text-base font-bold text-primary leading-none">
                             ৳{pricing.final.toFixed(2)}
                           </span>
                           {pricing.final < pricing.base && (
@@ -820,7 +820,7 @@ const CreatePosOrder: React.FC = () => {
                         </div>
 
                         {hasVariations ? (
-                          <span className="text-[9px] sm:text-[10px] font-bold text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded-full uppercase shrink-0 ml-1">
+                          <span className="text-[9px] sm:text-[10px] font-bold text-primary bg-primary/5 border border-primary/20 px-1.5 py-0.5 rounded-full uppercase shrink-0 ml-1">
                             {product.productVariations.length} opts
                           </span>
                         ) : (
@@ -829,8 +829,8 @@ const CreatePosOrder: React.FC = () => {
                             className={cn(
                               "size-6 sm:size-7 rounded-md flex items-center justify-center transition-colors shrink-0 ml-1",
                               inCart
-                                ? "bg-blue-600 text-white hover:bg-blue-700"
-                                : "bg-blue-50 text-blue-600 hover:bg-blue-100",
+                                ? "bg-primary text-white hover:bg-primary/90"
+                                : "bg-primary/5 text-primary hover:bg-primary/10",
                             )}
                           >
                             {inCart ? <Check className="size-3 sm:size-3.5" /> : <Plus className="size-3 sm:size-3.5" />}
@@ -853,13 +853,13 @@ const CreatePosOrder: React.FC = () => {
             <p className="text-sm font-bold text-gray-900">
               {cartItems.length} {cartItems.length === 1 ? "Item" : "Items"}
             </p>
-            <p className="text-lg font-bold text-blue-600">
+            <p className="text-lg font-bold text-primary">
               ৳{finalComputedTotal.toFixed(2)}
             </p>
           </div>
           <button
             onClick={() => setIsCartOpen(true)}
-            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-sm font-bold hover:bg-blue-700 transition"
+            className="flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-sm font-bold hover:bg-primary/90 transition"
           >
             <ShoppingCart className="size-5" />
             View Order
@@ -954,7 +954,7 @@ const CreatePosOrder: React.FC = () => {
                         "flex flex-col items-start p-3 border rounded-sm text-left transition-colors",
                         vInCart
                           ? "bg-green-50 border-green-500 text-green-800"
-                          : "bg-white border-gray-200 text-gray-800 hover:border-blue-500 hover:bg-blue-50",
+                          : "bg-white border-gray-200 text-gray-800 hover:border-primary hover:bg-primary/5",
                       )}
                     >
                       <div className="flex items-center justify-between w-full mb-1">
@@ -1058,7 +1058,7 @@ const CreatePosOrder: React.FC = () => {
                           {item.productName}
                         </p>
                         {item.variationLabel && (
-                          <p className="text-[10px] text-blue-500 font-medium truncate">{item.variationLabel}</p>
+                          <p className="text-[10px] text-primary/70 font-medium truncate">{item.variationLabel}</p>
                         )}
                         <p className="text-[10px] text-gray-400 mt-0.5 truncate">
                           ৳{item.unitPrice.toFixed(2)} / unit
@@ -1096,7 +1096,7 @@ const CreatePosOrder: React.FC = () => {
 
                       {/* Line total + remove — fixed min-width */}
                       <div className="flex flex-col items-end justify-center shrink-0 w-16">
-                        <span className="text-xs font-bold text-blue-700 whitespace-nowrap">
+                        <span className="text-xs font-bold text-primary whitespace-nowrap">
                           ৳{(item.unitPrice * item.quantity).toFixed(2)}
                         </span>
                         {item.unitPrice < item.basePrice && (
@@ -1133,7 +1133,7 @@ const CreatePosOrder: React.FC = () => {
                         setDiscountType(v);
                         if (v === "NONE") setDiscountValue(0);
                       }}
-                      className="w-full h-7 rounded-md border border-gray-300 bg-white text-xs text-gray-700 px-2 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
+                      className="w-full h-7 rounded-md border border-gray-300 bg-white text-xs text-gray-700 px-2 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary"
                     >
                       <option value="NONE">No Discount</option>
                       <option value="PERCENTAGE_DISCOUNT">% Discount</option>
@@ -1149,7 +1149,7 @@ const CreatePosOrder: React.FC = () => {
                       value={discountValue || ""}
                       disabled={discountType === "NONE"}
                       onChange={(e) => setDiscountValue(Number(e.target.value))}
-                      className="w-full h-7 rounded-md border border-gray-300 bg-white text-xs text-gray-900 px-2 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400 disabled:bg-gray-100 disabled:text-gray-400"
+                      className="w-full h-7 rounded-md border border-gray-300 bg-white text-xs text-gray-900 px-2 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary disabled:bg-gray-100 disabled:text-gray-400"
                     />
                   </div>
                   <div className="col-span-2 xl:col-span-1">
@@ -1161,7 +1161,7 @@ const CreatePosOrder: React.FC = () => {
                       placeholder="0"
                       value={taxPercent || ""}
                       onChange={(e) => setTaxPercent(Math.max(0, Number(e.target.value)))}
-                      className="w-full h-7 rounded-md border border-gray-300 bg-white text-xs text-gray-900 px-2 focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-400"
+                      className="w-full h-7 rounded-md border border-gray-300 bg-white text-xs text-gray-900 px-2 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary"
                     />
                   </div>
                 </div>
@@ -1189,7 +1189,7 @@ const CreatePosOrder: React.FC = () => {
                 {/* Total */}
                 <div className="flex justify-between items-center border-t border-gray-200 pt-1.5">
                   <span className="text-sm font-bold text-gray-800">Total</span>
-                  <span className="text-lg font-bold text-blue-700">৳{finalComputedTotal.toFixed(2)}</span>
+                  <span className="text-lg font-bold text-primary">৳{finalComputedTotal.toFixed(2)}</span>
                 </div>
 
                 {/* Buttons */}
@@ -1197,7 +1197,7 @@ const CreatePosOrder: React.FC = () => {
                   <button
                     onClick={() => setIsPaymentModalOpen(true)}
                     disabled={isSubmitting || cartItems.length === 0}
-                    className="w-full flex items-center justify-center gap-2 bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold rounded-xl py-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                    className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white text-xs font-bold rounded-xl py-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                   >
                     {isSubmitting ? (
                       <span className="size-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
@@ -1271,7 +1271,7 @@ const CreatePosOrder: React.FC = () => {
                     m.printPosReceipt(successBill),
                   );
                 }}
-                className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-md font-bold hover:bg-blue-700 transition"
+                className="w-full flex items-center justify-center gap-2 bg-primary text-white py-3 rounded-md font-bold hover:bg-primary/90 transition"
               >
                 <Printer className="size-5" />
                 Print POS Receipt

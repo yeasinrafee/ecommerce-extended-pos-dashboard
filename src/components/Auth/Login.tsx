@@ -5,7 +5,20 @@ import { z } from "zod";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "react-hot-toast";
-import CustomInput from "@/components/FormFields/CustomInput";
+import {
+  User,
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  Globe,
+  HelpCircle,
+  Settings,
+  Store,
+  IdCard,
+  Fingerprint,
+  Clock,
+} from "lucide-react";
 import CustomPasswordInput from "@/components/FormFields/CustomPasswordInput";
 import CustomButton from "@/components/Common/CustomButton";
 import { apiClient } from "@/lib/api";
@@ -14,6 +27,7 @@ import { AuthRoutes } from "@/routes/auth.route";
 import { useCompanyInformation } from "@/hooks/web.api";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import posBg from "@/assets/images/pos_bg.jpg";
 import type { ApiResponse, AuthData, LoginCredentials } from "@/types/auth";
 import {
   useForgotPasswordSendOtp,
@@ -25,8 +39,13 @@ import OtpInput from "@/components/FormFields/OtpInput";
 const ERROR_MESSAGE =
   "Login failed. Please verify your credentials and try again.";
 
-// Falls back to "POS Dashboard" (rendered in caps via CSS) when no env value is set.
-const COMPANY_NAME = process.env.NEXT_PUBLIC_COMPANY_NAME ?? "POS Dashboard";
+// Falls back to "OmniPOS Professional" when no env value is set.
+const COMPANY_NAME =
+  process.env.NEXT_PUBLIC_COMPANY_NAME ?? "OmniPOS Professional";
+
+// Falls back to "Terminal #104" when no env value is set.
+const TERMINAL_LABEL =
+  process.env.NEXT_PUBLIC_TERMINAL_LABEL ?? "Terminal #104";
 
 const resolveErrorMessage = (error: unknown) => {
   if (axios.isAxiosError(error)) {
@@ -43,11 +62,10 @@ const resolveErrorMessage = (error: unknown) => {
 type ViewState = "login" | "forgot-password-otp" | "reset-password";
 
 // ---- design tokens (kept local so this file stays drop-in) ----
-const INK = "#181B20";
-const PANEL = "#1F232B";
-const REGISTER_GREEN = "#0E7C5A";
-const REGISTER_GREEN_DARK = "#0B6748";
-const MUTED = "#8A93A3";
+const PRIMARY_BLUE = "#1447C9"; // header brand text / links
+const BUTTON_BLUE = "#123FAE"; // primary CTA
+const BUTTON_BLUE_DARK = "#0E2F84"; // primary CTA hover
+const ICON_BLUE = "#2358E8"; // rounded icon badge
 
 const Login = () => {
   const router = useRouter();
@@ -57,6 +75,7 @@ const Login = () => {
   const [view, setView] = useState<ViewState>("login");
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -182,12 +201,12 @@ const Login = () => {
     setError(null);
     const emailValue = email.trim();
     if (!emailValue) {
-      setError("Please enter your email to reset your password.");
+      setError("Please enter your operator ID to reset your password.");
       return;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(emailValue)) {
-      setError("Please enter a valid email address.");
+      setError("Please enter a valid operator email to continue.");
       return;
     }
 
@@ -293,9 +312,13 @@ const Login = () => {
     } catch (err: any) {}
   };
 
+  const handleQuickAccess = (mode: "ID Scan" | "Biometric" | "Clock In") => {
+    toast(`${mode} sign-in isn't set up on this terminal yet.`);
+  };
+
   // ---------------------------------------------------------------
-  // Card content per view — the outer "receipt" shell (below) stays
-  // the same for all three states, only the inside content swaps.
+  // Card content per view — the outer card shell (below) stays the
+  // same for all three states, only the inside content swaps.
   // ---------------------------------------------------------------
 
   let cardContent: React.ReactNode;
@@ -303,11 +326,14 @@ const Login = () => {
   if (view === "forgot-password-otp") {
     cardContent = (
       <form onSubmit={handleVerifyOtp} className="space-y-6">
-        <div className="flex flex-col gap-1.5">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#0E7C5A]">
+        <div className="flex flex-col items-center gap-1.5 text-center">
+          <span
+            className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+            style={{ color: PRIMARY_BLUE }}
+          >
             Step 2 of 3
           </span>
-          <span className="text-lg font-semibold text-slate-900">
+          <span className="text-xl font-bold text-slate-900">
             Enter verification code
           </span>
           <span className="text-sm text-slate-500">
@@ -324,7 +350,7 @@ const Login = () => {
         />
 
         {error && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2">
+          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
             {error}
           </p>
         )}
@@ -338,11 +364,12 @@ const Login = () => {
             onClick={handleResendOtp}
             disabled={sendOtpMutation.isPending || otpSecondsLeft > 0}
             aria-disabled={sendOtpMutation.isPending || otpSecondsLeft > 0}
-            className={`font-mono text-xs font-semibold text-[#0E7C5A] ${
+            className={`font-mono text-xs font-semibold ${
               sendOtpMutation.isPending || otpSecondsLeft > 0
                 ? "opacity-50 cursor-not-allowed"
-                : "hover:text-[#0B6748] cursor-pointer"
+                : "cursor-pointer hover:underline"
             }`}
+            style={{ color: PRIMARY_BLUE }}
           >
             {sendOtpMutation.isPending
               ? "Sending..."
@@ -352,13 +379,13 @@ const Login = () => {
           </button>
         </div>
 
-        {/* receipt-style dashed divider, like a subtotal line */}
-        <div className="border-t border-dashed border-slate-300 pt-5">
+        <div className="border-t border-slate-200 pt-5">
           <CustomButton
             type="submit"
             loading={verifyOtpMutation.isPending}
             disabled={otpCode.length < 6}
-            className="w-full !bg-[#0E7C5A] hover:!bg-[#0B6748] !text-white disabled:!opacity-50"
+            className="w-full !text-white disabled:!opacity-50"
+            style={{ backgroundColor: BUTTON_BLUE }}
           >
             Verify code
           </CustomButton>
@@ -378,16 +405,18 @@ const Login = () => {
   } else if (view === "reset-password") {
     cardContent = (
       <form onSubmit={handleSubmit(onSubmitReset)} className="space-y-6">
-        <div className="flex flex-col gap-1.5">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#0E7C5A]">
+        <div className="flex flex-col items-center gap-1.5 text-center">
+          <span
+            className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+            style={{ color: PRIMARY_BLUE }}
+          >
             Step 3 of 3
           </span>
-          <span className="text-lg font-semibold text-slate-900">
+          <span className="text-xl font-bold text-slate-900">
             Set a new password
           </span>
           <span className="text-sm text-slate-500">
-            Use at least 8 characters. Make it one you haven&apos;t used
-            before.
+            Use at least 8 characters. Make it one you haven&apos;t used before.
           </span>
         </div>
 
@@ -422,16 +451,17 @@ const Login = () => {
         />
 
         {error && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2">
+          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
             {error}
           </p>
         )}
 
-        <div className="border-t border-dashed border-slate-300 pt-5">
+        <div className="border-t border-slate-200 pt-5">
           <CustomButton
             type="submit"
             loading={resetPasswordMutation.isPending}
-            className="w-full !bg-[#0E7C5A] hover:!bg-[#0B6748] !text-white"
+            className="w-full !text-white"
+            style={{ backgroundColor: BUTTON_BLUE }}
           >
             Save new password
           </CustomButton>
@@ -441,179 +471,230 @@ const Login = () => {
   } else {
     cardContent = (
       <form onSubmit={handleLoginSubmit} className="space-y-6">
-        <div className="flex flex-col gap-1.5 mb-2">
-          <span className="text-lg font-semibold text-slate-900">
-            Sign in
+        {/* Icon badge */}
+        <div className="flex justify-center">
+          <div
+            className="flex size-16 items-center justify-center rounded-2xl shadow-sm"
+            style={{ backgroundColor: ICON_BLUE }}
+          >
+            <Store className="size-8 text-white" strokeWidth={2} />
+          </div>
+        </div>
+
+        <div className="flex flex-col items-center gap-1.5 text-center">
+          <span className="text-2xl font-bold text-slate-900">
+            Welcome Back
           </span>
-          <span className="text-sm text-slate-500">
-            Welcome back — pick up your shift where you left off.
+          <span className="text-sm leading-relaxed text-slate-500">
+            Sign in to {TERMINAL_LABEL} to manage your
+            <br />
+            storefront operations.
           </span>
         </div>
 
-        <CustomInput
-          label="Email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-
-        <CustomPasswordInput
-          label="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-
-        <div className="flex justify-end -mt-2">
-          <button
-            type="button"
-            onClick={handleForgotPasswordFromLogin}
-            disabled={sendOtpMutation.isPending}
-            aria-disabled={sendOtpMutation.isPending}
-            className={`text-xs font-semibold text-[#0E7C5A] ${
-              sendOtpMutation.isPending
-                ? "opacity-50 cursor-not-allowed"
-                : "hover:text-[#0B6748] cursor-pointer"
-            }`}
+        {/* Username */}
+        <div className="flex flex-col gap-1.5">
+          <label
+            htmlFor="operator-id"
+            className="text-sm font-semibold text-slate-700"
           >
-            {sendOtpMutation.isPending ? "Sending..." : "Forgot password?"}
-          </button>
+            Username
+          </label>
+          <div className="relative">
+            <User className="pointer-events-none absolute left-3.5 top-1/2 size-4.5 -translate-y-1/2 text-slate-400" />
+            <input
+              id="operator-id"
+              type="text"
+              autoComplete="username"
+              placeholder="Enter operator ID"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 py-3 pl-11 pr-3.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-transparent focus:bg-white focus:ring-2"
+              style={{ ["--tw-ring-color" as any]: PRIMARY_BLUE }}
+            />
+          </div>
+        </div>
+
+        {/* Password */}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between">
+            <label
+              htmlFor="operator-password"
+              className="text-sm font-semibold text-slate-700"
+            >
+              Password
+            </label>
+            <button
+              type="button"
+              onClick={handleForgotPasswordFromLogin}
+              disabled={sendOtpMutation.isPending}
+              aria-disabled={sendOtpMutation.isPending}
+              className={`text-xs font-semibold ${
+                sendOtpMutation.isPending
+                  ? "opacity-50 cursor-not-allowed"
+                  : "cursor-pointer hover:underline"
+              }`}
+              style={{ color: PRIMARY_BLUE }}
+            >
+              {sendOtpMutation.isPending ? "Sending..." : "Forgot PIN?"}
+            </button>
+          </div>
+          <div className="relative">
+            <Lock className="pointer-events-none absolute left-3.5 top-1/2 size-4.5 -translate-y-1/2 text-slate-400" />
+            <input
+              id="operator-password"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              placeholder="Enter password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 py-3 pl-11 pr-11 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-transparent focus:bg-white focus:ring-2"
+              style={{ ["--tw-ring-color" as any]: PRIMARY_BLUE }}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? (
+                <EyeOff className="size-4.5" />
+              ) : (
+                <Eye className="size-4.5" />
+              )}
+            </button>
+          </div>
         </div>
 
         {error && (
-          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-md px-3 py-2">
+          <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
             {error}
           </p>
         )}
 
-        {/* receipt-style dashed divider, like the line above a total */}
-        <div className="border-t border-dashed border-slate-300 pt-5">
-          <CustomButton
-            type="submit"
-            loading={loading}
-            className="w-full !bg-[#003d9b] hover:!bg-[#003d9b]/90 !text-white"
-          >
-            Sign in
-          </CustomButton>
+        <CustomButton
+          type="submit"
+          loading={loading}
+          className="flex w-full items-center justify-center gap-2 !text-white"
+          style={{ backgroundColor: BUTTON_BLUE }}
+        >
+          Secure Sign In
+          <ArrowRight className="size-4.5" />
+        </CustomButton>
+
+        <div className="border-t border-slate-200 pt-5">
+          <span className="mb-4 block text-center text-xs font-medium text-slate-500">
+            Quick Access Options
+          </span>
+          <div className="grid grid-cols-3 gap-3">
+            <button
+              type="button"
+              onClick={() => handleQuickAccess("ID Scan")}
+              className="flex flex-col items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 py-4 text-slate-600 transition hover:border-slate-300 hover:bg-slate-100"
+            >
+              <IdCard className="size-5" />
+              <span className="text-xs font-medium">ID Scan</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickAccess("Biometric")}
+              className="flex flex-col items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 py-4 text-slate-600 transition hover:border-slate-300 hover:bg-slate-100"
+            >
+              <Fingerprint className="size-5" />
+              <span className="text-xs font-medium">Biometric</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickAccess("Clock In")}
+              className="flex flex-col items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 py-4 text-slate-600 transition hover:border-slate-300 hover:bg-slate-100"
+            >
+              <Clock className="size-5" />
+              <span className="text-xs font-medium">Clock In</span>
+            </button>
+          </div>
         </div>
       </form>
     );
   }
 
   return (
-    <div className="min-h-screen w-full flex bg-[#F5F6F8]">
-      {/* perforated "receipt" edge, scoped to this page only */}
-      <style>{`
-        .pos-receipt-card { position: relative; }
-        .pos-receipt-card::before {
-          content: "";
-          position: absolute;
-          top: -9px;
-          left: 0;
-          right: 0;
-          height: 18px;
-          background-image: radial-gradient(circle at 9px 9px, transparent 8px, #F5F6F8 9px);
-          background-size: 18px 18px;
-          background-repeat: repeat-x;
-        }
-        .pos-barcode {
-          background-image: repeating-linear-gradient(
-            90deg,
-            rgba(255,255,255,0.9) 0px,
-            rgba(255,255,255,0.9) 2px,
-            transparent 2px,
-            transparent 5px,
-            rgba(255,255,255,0.55) 5px,
-            rgba(255,255,255,0.55) 6px,
-            transparent 6px,
-            transparent 10px
-          );
-        }
-      `}</style>
-
-      {/* Left: brand / register panel — hidden on small screens */}
-      <div
-        className="hidden lg:flex lg:w-[42%] relative flex-col justify-between p-12 overflow-hidden"
-        style={{ backgroundColor: PANEL }}
-      >
-        <div className="pos-barcode absolute inset-x-12 top-12 h-10 opacity-20" />
-
-        <div className="relative flex items-center gap-3">
+    <div className="relative flex min-h-screen w-full flex-col">
+      {/* ---------------- Top header bar ---------------- */}
+      <header className="relative z-20 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6">
+        <div className="flex items-center gap-2.5">
           {companyInfo?.logo ? (
             <Image
               src={companyInfo.logo}
               alt={companyInfo?.shortDescription || "Company logo"}
-              width={40}
-              height={40}
-              className="size-10 object-contain rounded"
+              width={28}
+              height={28}
+              className="size-7 rounded object-contain"
             />
           ) : (
             <div
-              className="size-10 rounded-md flex items-center justify-center font-mono text-sm font-bold text-white"
-              style={{ backgroundColor: REGISTER_GREEN }}
+              className="flex size-7 items-center justify-center rounded"
+              style={{ backgroundColor: ICON_BLUE }}
             >
-              $
+              <Store className="size-4 text-white" />
             </div>
           )}
-          <span className="text-sm font-semibold uppercase tracking-[0.2em] text-white">
+          <span className="text-lg font-bold" style={{ color: PRIMARY_BLUE }}>
             {companyInfo?.shortDescription || COMPANY_NAME}
           </span>
         </div>
 
-        <div className="relative max-w-sm">
-          <p className="text-3xl font-bold leading-tight text-white tracking-tight">
-            Every sale, every shift,
-            <br />
-            one register.
-          </p>
-          <p className="mt-4 text-sm leading-relaxed" style={{ color: MUTED }}>
-            Sign in to track orders, manage inventory, and close out the till
-            without missing a beat.
-          </p>
+        <div className="flex items-center gap-4 text-slate-500">
+          <button aria-label="Language" className="hover:text-slate-700">
+            <Globe className="size-5" />
+          </button>
+          <button aria-label="Help" className="hover:text-slate-700">
+            <HelpCircle className="size-5" />
+          </button>
+          <button aria-label="Settings" className="hover:text-slate-700">
+            <Settings className="size-5" />
+          </button>
         </div>
+      </header>
 
-        <div className="relative flex items-center gap-2 font-mono text-[11px]" style={{ color: MUTED }}>
-          <span className="inline-block size-1.5 rounded-full" style={{ backgroundColor: REGISTER_GREEN }} />
-          Secure, encrypted sign-in
-        </div>
-      </div>
+      {/* ---------------- Background image + overlay ---------------- */}
+      <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-[#F5F6F8] px-4 py-10">
+        <div
+          className="absolute inset-0 scale-105 bg-cover bg-center blur-[2px]"
+          style={{ backgroundImage: `url(${posBg.src})` }}
+          aria-hidden="true"
+        />
+        <div className="absolute inset-0 bg-white/70" aria-hidden="true" />
 
-      {/* Right: form panel */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-10">
-        <div className="w-full max-w-[420px]">
-          {/* mobile-only brand mark */}
-          <div className="lg:hidden mb-8 flex flex-col items-center gap-3">
-            {companyInfo?.logo ? (
-              <Image
-                src={companyInfo.logo}
-                alt={companyInfo?.shortDescription || "Company logo"}
-                width={56}
-                height={56}
-                className="size-14 object-contain"
-              />
-            ) : (
-              <div
-                className="size-12 rounded-md flex items-center justify-center font-mono text-base font-bold text-white"
-                style={{ backgroundColor: REGISTER_GREEN }}
-              >
-                $
-              </div>
-            )}
-            <span className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-800">
-              {companyInfo?.shortDescription || COMPANY_NAME}
-            </span>
-          </div>
-
-          <div className="pos-receipt-card bg-white rounded-b-xl shadow-[0_20px_45px_-15px_rgba(24,27,32,0.25)] border border-slate-200/70 px-7 sm:px-9 pt-9 pb-8">
-            {cardContent}
-          </div>
-
-          <p className="mt-6 text-center text-xs text-slate-400">
-            Trouble signing in? Contact your store administrator.
-          </p>
+        {/* ---------------- Card ---------------- */}
+        <div className="relative z-10 w-full max-w-[500px] rounded-2xl border border-slate-200/70 bg-white px-8 py-9 shadow-[0_20px_45px_-15px_rgba(24,27,32,0.25)] sm:px-10">
+          {cardContent}
         </div>
       </div>
+
+      {/* ---------------- Footer bar ---------------- */}
+      <footer className="relative z-20 flex flex-col items-center justify-between gap-2 border-t border-slate-200 bg-white px-6 py-3 text-xs text-slate-500 sm:flex-row">
+        <span>
+          OmniPOS &copy; {new Date().getFullYear()} OmniPOS Systems. All Rights
+          Reserved.
+        </span>
+        <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1">
+          <a href="#" className="hover:text-slate-700">
+            Security Policy
+          </a>
+          <a href="#" className="hover:text-slate-700">
+            System Status
+          </a>
+          <a href="#" className="hover:text-slate-700">
+            Contact Support
+          </a>
+          <button className="flex items-center gap-1.5 rounded-md border border-slate-200 px-2.5 py-1 hover:border-slate-300">
+            <Globe className="size-3.5" />
+            English (US)
+          </button>
+        </div>
+      </footer>
     </div>
   );
 };

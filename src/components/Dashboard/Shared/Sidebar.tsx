@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ChevronLeft, BarChart3 } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { usePathname } from 'next/navigation';
@@ -13,6 +13,9 @@ import SidebarItem from './SidebarItem';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useAuthStore } from '@/store/useAuthStore';
 import type { StoredUser } from '@/types/auth';
+import Image from 'next/image';
+import logoPos from '@/assets/images/logo_pos.jpeg';
+import posIcon from '@/assets/images/pos_icon.png';
 
 interface SidebarProps {
   routes: {
@@ -46,7 +49,7 @@ const Sidebar = ({
   routes,
   user,
   title = 'POS Dashboard',
-  logo = <BarChart3 className='h-6 w-6 text-[#3460be]' />,
+  logo,
   mobileOpen = false,
   setMobileOpen,
   collapsed = false,
@@ -145,13 +148,28 @@ const Sidebar = ({
         >
           {!isCollapsed && (
             <div className='flex items-center gap-2'>
-              {logo}
-              <h1 className='text-[0.95rem] font-semibold tracking-[0.02em] text-slate-900'>
-                {title}
-              </h1>
+              {logo ?? (
+                <Image
+                  src={logoPos}
+                  alt="POS Logo"
+                  width={130}
+                  height={36}
+                  className="object-contain"
+                  priority
+                />
+              )}
             </div>
           )}
-          {isCollapsed && logo}
+          {isCollapsed && (
+            <Image
+              src={posIcon}
+              alt="POS Icon"
+              width={32}
+              height={32}
+              className="object-contain"
+              priority
+            />
+          )}
           {isMobile && !isCollapsed && (
             <Button
               variant='ghost'
