@@ -15,9 +15,6 @@ import {
   HelpCircle,
   Settings,
   Store,
-  IdCard,
-  Fingerprint,
-  Clock,
 } from "lucide-react";
 import CustomPasswordInput from "@/components/FormFields/CustomPasswordInput";
 import CustomButton from "@/components/Common/CustomButton";
@@ -28,6 +25,7 @@ import { useCompanyInformation } from "@/hooks/web.api";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import posBg from "@/assets/images/pos_bg.jpg";
+import logoPos from "@/assets/images/logo_pos.jpeg";
 import type { ApiResponse, AuthData, LoginCredentials } from "@/types/auth";
 import {
   useForgotPasswordSendOtp,
@@ -42,10 +40,6 @@ const ERROR_MESSAGE =
 // Falls back to "OmniPOS Professional" when no env value is set.
 const COMPANY_NAME =
   process.env.NEXT_PUBLIC_COMPANY_NAME ?? "OmniPOS Professional";
-
-// Falls back to "Terminal #104" when no env value is set.
-const TERMINAL_LABEL =
-  process.env.NEXT_PUBLIC_TERMINAL_LABEL ?? "Terminal #104";
 
 const resolveErrorMessage = (error: unknown) => {
   if (axios.isAxiosError(error)) {
@@ -62,7 +56,7 @@ const resolveErrorMessage = (error: unknown) => {
 type ViewState = "login" | "forgot-password-otp" | "reset-password";
 
 // ---- design tokens (kept local so this file stays drop-in) ----
-const PRIMARY_BLUE = "#1447C9"; // header brand text / links
+const PRIMARY_BLUE = "#003d9b"; // header brand text / links
 const BUTTON_BLUE = "#123FAE"; // primary CTA
 const BUTTON_BLUE_DARK = "#0E2F84"; // primary CTA hover
 const ICON_BLUE = "#2358E8"; // rounded icon badge
@@ -78,6 +72,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rememberMe, setRememberMe] = useState(false);
 
   // Forgot password state
   const [forgotEmail, setForgotEmail] = useState("");
@@ -90,6 +85,15 @@ const Login = () => {
   const sendOtpMutation = useForgotPasswordSendOtp();
   const verifyOtpMutation = useForgotPasswordVerifyOtp();
   const resetPasswordMutation = useResetPassword();
+
+  // Load remembered email on mount
+  useEffect(() => {
+    const remembered = localStorage.getItem("rememberedEmail");
+    if (remembered) {
+      setEmail(remembered);
+      setRememberMe(true);
+    }
+  }, []);
 
   const resetPasswordSchema = z
     .object({
@@ -169,6 +173,14 @@ const Login = () => {
 
       // Set user in store before navigation so dashboard has the auth state available
       setUser(stored);
+      
+      // Handle Remember Me functionality
+      if (rememberMe) {
+        localStorage.setItem("rememberedEmail", email.trim());
+      } else {
+        localStorage.removeItem("rememberedEmail");
+      }
+      
       setPassword("");
       toast.success(`Welcome, ${user.name || "User"}!`);
       router.push("/dashboard");
@@ -201,12 +213,12 @@ const Login = () => {
     setError(null);
     const emailValue = email.trim();
     if (!emailValue) {
-      setError("Please enter your operator ID to reset your password.");
+      setError("Please enter your email to reset your password.");
       return;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(emailValue)) {
-      setError("Please enter a valid operator email to continue.");
+      setError("Please enter a valid email address to continue.");
       return;
     }
 
@@ -310,10 +322,6 @@ const Login = () => {
       });
       setView("reset-password");
     } catch (err: any) {}
-  };
-
-  const handleQuickAccess = (mode: "ID Scan" | "Biometric" | "Clock In") => {
-    toast(`${mode} sign-in isn't set up on this terminal yet.`);
   };
 
   // ---------------------------------------------------------------
@@ -470,15 +478,16 @@ const Login = () => {
     );
   } else {
     cardContent = (
-      <form onSubmit={handleLoginSubmit} className="space-y-6">
-        {/* Icon badge */}
+      <form onSubmit={handleLoginSubmit} className="space-y-4">
+        {/* Logo */}
         <div className="flex justify-center">
-          <div
-            className="flex size-16 items-center justify-center rounded-2xl shadow-sm"
-            style={{ backgroundColor: ICON_BLUE }}
-          >
-            <Store className="size-8 text-white" strokeWidth={2} />
-          </div>
+          <Image
+            src={logoPos}
+            alt="POS Logo"
+            width={120}
+            height={80}
+            className="object-contain shadow-sm"
+          />
         </div>
 
         <div className="flex flex-col items-center gap-1.5 text-center">
@@ -486,9 +495,7 @@ const Login = () => {
             Welcome Back
           </span>
           <span className="text-sm leading-relaxed text-slate-500">
-            Sign in to {TERMINAL_LABEL} to manage your
-            <br />
-            storefront operations.
+            Manage your storefront operations
           </span>
         </div>
 
@@ -498,7 +505,7 @@ const Login = () => {
             htmlFor="operator-id"
             className="text-sm font-semibold text-slate-700"
           >
-            Username
+            Email
           </label>
           <div className="relative">
             <User className="pointer-events-none absolute left-3.5 top-1/2 size-4.5 -translate-y-1/2 text-slate-400" />
@@ -506,11 +513,11 @@ const Login = () => {
               id="operator-id"
               type="text"
               autoComplete="username"
-              placeholder="Enter operator ID"
+              placeholder="Enter email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 py-3 pl-11 pr-3.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-transparent focus:bg-white focus:ring-2"
+              className="w-full rounded-md border border-slate-200 bg-slate-50 py-2 pl-11 pr-3.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-transparent focus:bg-white focus:ring-2"
               style={{ ["--tw-ring-color" as any]: PRIMARY_BLUE }}
             />
           </div>
@@ -518,28 +525,12 @@ const Login = () => {
 
         {/* Password */}
         <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between">
-            <label
-              htmlFor="operator-password"
-              className="text-sm font-semibold text-slate-700"
-            >
-              Password
-            </label>
-            <button
-              type="button"
-              onClick={handleForgotPasswordFromLogin}
-              disabled={sendOtpMutation.isPending}
-              aria-disabled={sendOtpMutation.isPending}
-              className={`text-xs font-semibold ${
-                sendOtpMutation.isPending
-                  ? "opacity-50 cursor-not-allowed"
-                  : "cursor-pointer hover:underline"
-              }`}
-              style={{ color: PRIMARY_BLUE }}
-            >
-              {sendOtpMutation.isPending ? "Sending..." : "Forgot PIN?"}
-            </button>
-          </div>
+          <label
+            htmlFor="operator-password"
+            className="text-sm font-semibold text-slate-700"
+          >
+            Password
+          </label>
           <div className="relative">
             <Lock className="pointer-events-none absolute left-3.5 top-1/2 size-4.5 -translate-y-1/2 text-slate-400" />
             <input
@@ -550,7 +541,7 @@ const Login = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 py-3 pl-11 pr-11 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-transparent focus:bg-white focus:ring-2"
+              className="w-full rounded-md border border-slate-200 bg-slate-50 py-2 pl-11 pr-11 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-transparent focus:bg-white focus:ring-2"
               style={{ ["--tw-ring-color" as any]: PRIMARY_BLUE }}
             />
             <button
@@ -564,6 +555,32 @@ const Login = () => {
               ) : (
                 <Eye className="size-4.5" />
               )}
+            </button>
+          </div>
+          {/* Remember me + Forgot password row */}
+          <div className="flex items-center justify-between pt-1">
+            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="size-3 rounded border-slate-300 accent-[#1447C9] cursor-pointer"
+              />
+              <span className="text-[11px] font-medium text-slate-600">Remember me</span>
+            </label>
+            <button
+              type="button"
+              onClick={handleForgotPasswordFromLogin}
+              disabled={sendOtpMutation.isPending}
+              aria-disabled={sendOtpMutation.isPending}
+              className={`text-[11px]! font-semibold ${
+                sendOtpMutation.isPending
+                  ? "opacity-50 cursor-not-allowed"
+                  : "cursor-pointer hover:underline"
+              }`}
+              style={{ color: PRIMARY_BLUE }}
+            >
+              {sendOtpMutation.isPending ? "Sending..." : "Forgot password?"}
             </button>
           </div>
         </div>
@@ -584,35 +601,17 @@ const Login = () => {
           <ArrowRight className="size-4.5" />
         </CustomButton>
 
-        <div className="border-t border-slate-200 pt-5">
-          <span className="mb-4 block text-center text-xs font-medium text-slate-500">
-            Quick Access Options
-          </span>
-          <div className="grid grid-cols-3 gap-3">
-            <button
-              type="button"
-              onClick={() => handleQuickAccess("ID Scan")}
-              className="flex flex-col items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 py-4 text-slate-600 transition hover:border-slate-300 hover:bg-slate-100"
+        {/* Powered by section */}
+        <div className="border-t border-slate-200 pt-4">
+          <div className="flex items-center justify-center">
+            <a
+              href="https://yesglobaltech.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] text-slate-500 hover:text-slate-700 transition-colors"
             >
-              <IdCard className="size-5" />
-              <span className="text-xs font-medium">ID Scan</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickAccess("Biometric")}
-              className="flex flex-col items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 py-4 text-slate-600 transition hover:border-slate-300 hover:bg-slate-100"
-            >
-              <Fingerprint className="size-5" />
-              <span className="text-xs font-medium">Biometric</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleQuickAccess("Clock In")}
-              className="flex flex-col items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 py-4 text-slate-600 transition hover:border-slate-300 hover:bg-slate-100"
-            >
-              <Clock className="size-5" />
-              <span className="text-xs font-medium">Clock In</span>
-            </button>
+              Powered by <span className="font-semibold">Yes Global Tech</span>
+            </a>
           </div>
         </div>
       </form>
@@ -622,7 +621,7 @@ const Login = () => {
   return (
     <div className="relative flex min-h-screen w-full flex-col">
       {/* ---------------- Top header bar ---------------- */}
-      <header className="relative z-20 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6">
+      {/* <header className="relative z-20 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6">
         <div className="flex items-center gap-2.5">
           {companyInfo?.logo ? (
             <Image
@@ -656,7 +655,7 @@ const Login = () => {
             <Settings className="size-5" />
           </button>
         </div>
-      </header>
+      </header> */}
 
       {/* ---------------- Background image + overlay ---------------- */}
       <div className="relative flex flex-1 items-center justify-center overflow-hidden bg-[#F5F6F8] px-4 py-10">
@@ -668,15 +667,15 @@ const Login = () => {
         <div className="absolute inset-0 bg-white/70" aria-hidden="true" />
 
         {/* ---------------- Card ---------------- */}
-        <div className="relative z-10 w-full max-w-[500px] rounded-2xl border border-slate-200/70 bg-white px-8 py-9 shadow-[0_20px_45px_-15px_rgba(24,27,32,0.25)] sm:px-10">
+        <div className="relative z-10 w-full max-w-[420px] rounded-2xl border border-slate-200/70 bg-white px-8 py-9 shadow-[0_20px_45px_-15px_rgba(24,27,32,0.25)] sm:px-10">
           {cardContent}
         </div>
       </div>
 
       {/* ---------------- Footer bar ---------------- */}
-      <footer className="relative z-20 flex flex-col items-center justify-between gap-2 border-t border-slate-200 bg-white px-6 py-3 text-xs text-slate-500 sm:flex-row">
+      {/* <footer className="relative z-20 flex flex-col items-center justify-between gap-2 border-t border-slate-200 bg-white px-6 py-3 text-xs text-slate-500 sm:flex-row">
         <span>
-          OmniPOS &copy; {new Date().getFullYear()} OmniPOS Systems. All Rights
+         BiloPOS &copy; {new Date().getFullYear()} BiloPOS Systems. All Rights
           Reserved.
         </span>
         <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1">
@@ -694,7 +693,7 @@ const Login = () => {
             English (US)
           </button>
         </div>
-      </footer>
+      </footer> */}
     </div>
   );
 };
