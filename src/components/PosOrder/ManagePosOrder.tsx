@@ -55,7 +55,7 @@ import { cn } from "@/lib/utils";
 type PaymentStatusFilter = "" | "PAID" | "PENDING" | "DUE";
 
 const PAYMENT_STATUS_OPTS: { label: string; value: PaymentStatusFilter }[] = [
-  { label: "All Statuses", value: "" },
+  { label: "All Status", value: "" },
   { label: "Paid", value: "PAID" },
   { label: "Due", value: "DUE" },
   { label: "Pending", value: "PENDING" },

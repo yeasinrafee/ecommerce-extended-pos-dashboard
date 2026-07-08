@@ -44,7 +44,7 @@ const AreaChart = ({ data }: AreaChartProps) => {
             tickLine={false}
             axisLine={false}
             tickMargin={8}
-            tickFormatter={(value) => `$${value}`}
+            tickFormatter={(value) => `৳${value}`}
           />
           <Tooltip content={<ChartTooltipContent />} />
           <defs>

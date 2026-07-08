@@ -147,12 +147,12 @@ const Sidebar = ({
           )}
         >
           {!isCollapsed && (
-            <div className='flex items-center gap-2'>
+            <div className='flex items-center justify-center w-full gap-2'>
               {logo ?? (
                 <Image
                   src={logoPos}
                   alt="POS Logo"
-                  width={130}
+                  width={150}
                   height={36}
                   className="object-contain"
                   priority
@@ -164,7 +164,7 @@ const Sidebar = ({
             <Image
               src={posIcon}
               alt="POS Icon"
-              width={32}
+              width={64}
               height={32}
               className="object-contain"
               priority

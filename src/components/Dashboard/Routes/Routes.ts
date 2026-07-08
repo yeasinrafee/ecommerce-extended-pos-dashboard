@@ -9,7 +9,7 @@ import {
   LuNewspaper,
   LuLandmark,
   LuUserCog,
-  LuStore,
+  LuScanLine,
   LuHandshake,
 } from "react-icons/lu";
 
@@ -70,7 +70,7 @@ export const routes: RouteItem[] = [
     href: "/dashboard/orders",
   },
   {
-    icon: LuStore,
+    icon: LuScanLine,
     label: "POS Order",
     href: "/dashboard/pos-order",
     subItems: [
