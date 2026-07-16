@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { X } from "lucide-react";
 
 interface SelectOption {
   label: string;
@@ -31,6 +32,7 @@ interface CustomSelectProps<
   fieldToValue?: (val: any) => string;
   valueToField?: (val: string) => any;
   disabled?: boolean;
+  clearable?: boolean;
   className?: string;
   fieldClassName?: string;
   labelClassName?: string;
@@ -57,6 +59,7 @@ export default function CustomSelect<
   fieldToValue,
   valueToField,
   disabled = false,
+  clearable = false,
   className,
   fieldClassName,
   labelClassName,
@@ -73,6 +76,13 @@ export default function CustomSelect<
       control={control}
       render={({ field, fieldState }) => {
         const selectValue = typeof fieldToValue === "function" ? fieldToValue(field.value) : field.value;
+        const hasValue = selectValue !== "" && selectValue != null;
+
+        const handleClear = (e: React.MouseEvent) => {
+          e.stopPropagation();
+          field.onChange(typeof valueToField === "function" ? valueToField("") : "");
+          if (onChangeCallback) onChangeCallback("");
+        };
 
         return (
           <div data-invalid={fieldState.invalid} className={cn(fieldClassName)}>
@@ -85,25 +95,42 @@ export default function CustomSelect<
               </Label>
             )}
 
-            <Select
-              onValueChange={(v: string) => {
-                field.onChange(typeof valueToField === "function" ? valueToField(v) : v);
-                if (onChangeCallback) onChangeCallback(v);
-              }}
-              value={selectValue}
-              disabled={disabled}
-            >
-              <SelectTrigger id={`select-${String(name)}`} className={cn("h-10! w-full bg-white", triggerClassName)}>
-                <SelectValue placeholder={placeholder} />
-              </SelectTrigger>
-              <SelectContent position="popper" className={cn(contentClassName)}>
-                {options.map((option) => (
-                  <SelectItem key={option.value} value={option.value} className={cn(itemClassName)}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="relative">
+              <Select
+                onValueChange={(v: string) => {
+                  field.onChange(typeof valueToField === "function" ? valueToField(v) : v);
+                  if (onChangeCallback) onChangeCallback(v);
+                }}
+                value={selectValue}
+                disabled={disabled}
+              >
+                <SelectTrigger
+                  id={`select-${String(name)}`}
+                  className={cn("w-full", clearable && hasValue && "pr-14", triggerClassName)}
+                >
+                  <SelectValue placeholder={placeholder} />
+                </SelectTrigger>
+                <SelectContent position="popper" className={cn(contentClassName)}>
+                  {options.map((option) => (
+                    <SelectItem key={option.value} value={option.value} className={cn(itemClassName)}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {clearable && hasValue && !disabled && (
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  className="absolute right-9 top-1/2 -translate-y-1/2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-slate-500 hover:bg-slate-300 hover:text-slate-800 transition-colors"
+                  aria-label="Clear selection"
+                  tabIndex={-1}
+                >
+                  <X size={11} strokeWidth={2.5} />
+                </button>
+              )}
+            </div>
 
             {description && (
               <p className={cn("text-xs text-muted-foreground", descriptionClassName)}>

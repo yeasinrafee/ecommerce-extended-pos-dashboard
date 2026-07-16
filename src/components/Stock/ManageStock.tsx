@@ -289,7 +289,7 @@ export default function ManageStock() {
           clearSearch={() => setSearchInput("")}
         />
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <CustomSelect
             name="orderStatus"
             control={bulkStatusForm.control}
@@ -298,7 +298,7 @@ export default function ManageStock() {
             valueToField={(value) => value}
             onChangeCallback={(value) => setBulkOrderStatus(value)}
             placeholder="Bulk status"
-            triggerClassName="w-44 bg-white"
+            triggerClassName="w-40 bg-white"
           />
           <CustomButton
             disabled={selectedIds.length === 0 || !bulkOrderStatus}

@@ -14,6 +14,7 @@ interface PaginationControlProps {
   onPageChange: (page: number) => void;
   totalItems?: number;
   itemsPerPage?: number;
+  onLimitChange?: (limit: number) => void;
 }
 
 export function PaginationControl({
@@ -51,19 +52,21 @@ export function PaginationControl({
   };
 
   return (
-    <div className=" w-full flex flex-col sm:flex-row md:items-center justify-between gap-4">
-      <div>
+    <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* Left side: entry count */}
+      <div className="flex items-center gap-3">
         {totalItems !== undefined && itemsPerPage !== undefined && (
-          <div className="text-sm text-muted-foreground w-full">
-            Showing{" "}
-            {Math.min(
-              itemsPerPage,
-              totalItems - (currentPage - 1) * itemsPerPage
-            )}{" "}
-            of {totalItems} items
-          </div>
+          <span className="text-xs text-slate-500">
+            {(() => {
+              const start = Math.max(0, (currentPage - 1) * itemsPerPage) + 1;
+              const end = Math.min(currentPage * itemsPerPage, totalItems);
+              return totalItems === 0 ? '0 entries' : `${start}–${end} of ${totalItems} entries`;
+            })()}
+          </span>
         )}
       </div>
+
+      {/* Right side: page navigation */}
       <div>
         <Pagination>
           <PaginationContent>

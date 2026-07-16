@@ -41,7 +41,7 @@ const productStatusOptions = [
   { label: "Inactive", value: "INACTIVE" },
 ];
 
-const toNumber = (value: unknown) => {
+const toNumber = (value: any) => {
   if (value === "" || value === null || value === undefined) {
     return value;
   }
@@ -90,11 +90,15 @@ const createProductSchema = z
     description: z.string().trim().min(1, "Description is required"),
     basePrice: z.preprocess(toNumber, z.number().positive()),
     posPrice: nullablePositivePriceSchema,
+    barcodeId: z.preprocess((value) => {
+      if (value === "" || value === null || value === undefined) return null;
+      const str = String(value).trim();
+      return str === "" ? null : str;
+    }, z.string().regex(/^\d+$/, "Barcode must contain digits only").nullable()),
     discountType: z.enum(["NONE", "FLAT_DISCOUNT", "PERCENTAGE_DISCOUNT"]),
     discountValue: nullableNumberSchema,
     discountStartDate: nullableDateStringSchema,
     discountEndDate: nullableDateStringSchema,
-    stock: z.preprocess(toNumber, z.number().int().positive()),
     sku: nullableStringSchema,
     weight: nullablePositiveNumberSchema,
     length: nullablePositiveNumberSchema,
@@ -107,7 +111,7 @@ const createProductSchema = z
       return String(value).trim();
     }, z.string().optional()),
     status: z.enum(["ACTIVE", "INACTIVE"]),
-    stockStatus: z.enum(["IN_STOCK", "LOW_STOCK", "OUT_OF_STOCK"]),
+    // stockStatus is NOT sent — server computes it automatically from stock quantity
     categories: z
       .array(z.string().trim().min(1))
       .min(1, "At least one category is required"),
@@ -147,18 +151,6 @@ const createProductSchema = z
       .nullable(),
   })
   .superRefine((data, ctx) => {
-    const hasWeight = data.weight != null;
-    const hasDimensions =
-      data.length != null && data.width != null && data.height != null;
-
-    if (!hasWeight && !hasDimensions) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["weight"],
-        message: "Provide weight or all three dimensions",
-      });
-    }
-
     const needsDiscountValue = data.discountType !== "NONE";
     if (
       needsDiscountValue &&
@@ -205,11 +197,11 @@ const defaultFormValues: z.infer<typeof createProductSchema> = {
   description: "",
   basePrice: 0,
   posPrice: null,
+  barcodeId: null,
   discountType: "NONE",
   discountValue: null,
   discountStartDate: null,
   discountEndDate: null,
-  stock: 0,
   sku: null,
   weight: null,
   length: null,
@@ -217,7 +209,7 @@ const defaultFormValues: z.infer<typeof createProductSchema> = {
   height: null,
   brand: "",
   status: "ACTIVE",
-  stockStatus: "IN_STOCK",
+  // stockStatus is server-computed — not part of form
   categories: [],
   tags: [],
   galleryImagesMeta: [],
@@ -270,7 +262,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
     setValue,
     watch,
     reset,
-    formState: { isValid, isSubmitting, isDirty },
+    formState: { isValid, isSubmitting, isDirty, errors },
   } = useForm<z.infer<typeof createProductSchema>>({
     resolver: zodResolver(createProductSchema) as Resolver<
       z.infer<typeof createProductSchema>
@@ -284,10 +276,10 @@ export default function CreateProductForm({ productId }: { productId?: string })
   const [description, setDescription] = React.useState("");
   const [basePrice, setBasePrice] = React.useState<number | null>(null);
   const [posPrice, setPosPrice] = React.useState<number | null>(null);
+  const [barcode, setBarcode] = React.useState("");
   const [discountValue, setDiscountValue] = React.useState<number | null>(null);
   const [discountStart, setDiscountStart] = React.useState<Date | null>(null);
   const [discountEnd, setDiscountEnd] = React.useState<Date | null>(null);
-  const [stockQuantity, setStockQuantity] = React.useState<number | null>(null);
   const [sku, setSku] = React.useState("");
   const [weight, setWeight] = React.useState<number | null>(null);
   const [lengthCm, setLengthCm] = React.useState<number | null>(null);
@@ -307,7 +299,6 @@ export default function CreateProductForm({ productId }: { productId?: string })
   const [isEditorProcessing, setIsEditorProcessing] = React.useState(false);
 
   const selectedDiscountType = watch("discountType");
-  const stockStatusValue = watch("stockStatus");
   const productStatusValue = watch("status");
 
   const { data: productCategories } = useAllCategories();
@@ -344,10 +335,10 @@ export default function CreateProductForm({ productId }: { productId?: string })
     setDescription(p.description ?? "");
     setBasePrice(p.Baseprice ?? null);
     setPosPrice(p.posPrice ?? null);
+    setBarcode(p.barcodeId ?? "");
     setDiscountValue(p.discountValue ?? null);
     setDiscountStart(p.discountStartDate ? new Date(p.discountStartDate) : null);
     setDiscountEnd(p.discountEndDate ? new Date(p.discountEndDate) : null);
-    setStockQuantity(p.stock ?? null);
     setSku(p.sku ?? "");
     setWeight(p.weight ?? null);
     setLengthCm(p.length ?? null);
@@ -367,11 +358,11 @@ export default function CreateProductForm({ productId }: { productId?: string })
       description: p.description ?? "",
       basePrice: p.Baseprice ?? 0,
       posPrice: p.posPrice ?? null,
+      barcodeId: p.barcodeId ?? null,
       discountType: p.discountType ?? "NONE",
       discountValue: p.discountValue ?? null,
       discountStartDate: p.discountStartDate ?? null,
       discountEndDate: p.discountEndDate ?? null,
-      stock: p.stock ?? 0,
       sku: p.sku ?? null,
       weight: p.weight ?? null,
       length: p.length ?? null,
@@ -379,7 +370,6 @@ export default function CreateProductForm({ productId }: { productId?: string })
       height: p.height ?? null,
       brand: p.brandId ?? "",
       status: p.status ?? "ACTIVE",
-      stockStatus: p.stockStatus ?? "IN_STOCK",
       categories: (p.categories ?? []).map((c: any) => c.categoryId),
       tags: (p.tags ?? []).map((t: any) => t.tagId),
       galleryImagesMeta: [],
@@ -474,6 +464,16 @@ export default function CreateProductForm({ productId }: { productId?: string })
     });
   };
 
+  const updateBarcode = (value: string) => {
+    // Strip non-digit characters at the handler level so scanner input is always clean
+    const digitsOnly = value.replace(/\D/g, "");
+    setBarcode(digitsOnly);
+    setValue("barcodeId", digitsOnly === "" ? null : digitsOnly, {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+  };
+
   const updateDiscountValue = (value: number | null) => {
     setDiscountValue(value);
     setValue("discountValue", value, {
@@ -493,14 +493,6 @@ export default function CreateProductForm({ productId }: { productId?: string })
   const updateDiscountEnd = (value: Date | null) => {
     setDiscountEnd(value);
     setValue("discountEndDate", value ? value.toISOString() : null, {
-      shouldValidate: true,
-      shouldDirty: true,
-    });
-  };
-
-  const updateStockQuantity = (value: number | null) => {
-    setStockQuantity(value);
-    setValue("stock", value ?? 0, {
       shouldValidate: true,
       shouldDirty: true,
     });
@@ -659,7 +651,6 @@ export default function CreateProductForm({ productId }: { productId?: string })
   const hasMainImage = !!rightData.mainImage || !!currentMainImageExistingUrl;
   const submitDisabled =
     !isValid ||
-    !hasMainImage ||
     !hasActualChanges ||
     mutationPending ||
     isSubmitting ||
@@ -704,7 +695,6 @@ export default function CreateProductForm({ productId }: { productId?: string })
     payload.append("discountValue", values.discountValue == null ? "" : String(values.discountValue));
     payload.append("discountStartDate", values.discountStartDate ?? "");
     payload.append("discountEndDate", values.discountEndDate ?? "");
-    payload.append("stock", String(values.stock));
     payload.append("sku", values.sku ?? "");
     payload.append("weight", values.weight == null ? "" : String(values.weight));
     payload.append("length", values.length == null ? "" : String(values.length));
@@ -712,9 +702,9 @@ export default function CreateProductForm({ productId }: { productId?: string })
     payload.append("height", values.height == null ? "" : String(values.height));
     if (values.brand) payload.append("brandId", values.brand);
     payload.append("status", values.status);
-    payload.append("stockStatus", values.stockStatus);
     payload.append("categories", JSON.stringify(values.categories));
     payload.append("tags", JSON.stringify(values.tags));
+    if (barcode.trim()) payload.append("barcodeId", barcode.trim());
 
     const galleryMeta = rightData.galleryImages.map((image) => ({ id: image.id, name: image.name }));
     payload.append("galleryImagesMeta", JSON.stringify(galleryMeta));
@@ -724,7 +714,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
     const hasSeoData = Boolean(seoData.metaTitle || seoData.metaDescription || seoData.seoKeywords.length > 0);
     payload.append("seo", JSON.stringify(hasSeoData ? seoData : null));
 
-    payload.append("mainImage", rightData.mainImage!.file);
+    if (rightData.mainImage) payload.append("mainImage", rightData.mainImage.file);
     rightData.galleryImages.forEach((image) => payload.append("galleryImages", image.file));
 
     return payload;
@@ -741,7 +731,6 @@ export default function CreateProductForm({ productId }: { productId?: string })
     payload.append("discountValue", values.discountValue == null ? "" : String(values.discountValue));
     payload.append("discountStartDate", values.discountStartDate ?? "");
     payload.append("discountEndDate", values.discountEndDate ?? "");
-    payload.append("stock", String(values.stock));
     payload.append("sku", values.sku ?? "");
     payload.append("weight", values.weight == null ? "" : String(values.weight));
     payload.append("length", values.length == null ? "" : String(values.length));
@@ -749,9 +738,9 @@ export default function CreateProductForm({ productId }: { productId?: string })
     payload.append("height", values.height == null ? "" : String(values.height));
     if (values.brand) payload.append("brandId", values.brand);
     payload.append("status", values.status);
-    payload.append("stockStatus", values.stockStatus);
     payload.append("categories", JSON.stringify(values.categories));
     payload.append("tags", JSON.stringify(values.tags));
+    if (barcode.trim()) payload.append("barcodeId", barcode.trim());
 
     // Main image handling
     const keepMainImage = !rightData.mainImage && !!rightData.mainImageExistingUrl;
@@ -783,10 +772,10 @@ export default function CreateProductForm({ productId }: { productId?: string })
     setDescription("");
     setBasePrice(null);
     setPosPrice(null);
+    setBarcode("");
     setDiscountValue(null);
     setDiscountStart(null);
     setDiscountEnd(null);
-    setStockQuantity(null);
     setSku("");
     setWeight(null);
     setLengthCm(null);
@@ -805,11 +794,6 @@ export default function CreateProductForm({ productId }: { productId?: string })
   };
 
   const onSubmit = (values: z.infer<typeof createProductSchema>) => {
-    if (!hasMainImage) {
-      toast.error("Main image is required");
-      return;
-    }
-
     if (attributesPending && attributesPending.name && (!attributesPending.value || attributesPending.value.trim() === "")) {
       toast.error(`Please select a value for attribute "${attributesPending.name}"`);
       return;
@@ -834,6 +818,9 @@ export default function CreateProductForm({ productId }: { productId?: string })
           setBasePrice={updateBasePrice}
           posPrice={posPrice}
           setPosPrice={updatePosPrice}
+          barcode={barcode}
+          setBarcode={updateBarcode}
+          barcodeError={errors.barcodeId?.message}
           selectedDiscountType={selectedDiscountType}
           discountValue={discountValue}
           setDiscountValue={updateDiscountValue}
@@ -841,8 +828,6 @@ export default function CreateProductForm({ productId }: { productId?: string })
           setDiscountStart={updateDiscountStart}
           discountEnd={discountEnd}
           setDiscountEnd={updateDiscountEnd}
-          stockQuantity={stockQuantity}
-          setStockQuantity={updateStockQuantity}
           sku={sku}
           setSku={updateSku}
           weight={weight}
@@ -855,7 +840,6 @@ export default function CreateProductForm({ productId }: { productId?: string })
           setHeightCm={updateHeight}
           control={control as unknown as any}
           discountOptions={discountOptions}
-          stockStatusOptions={stockStatusOptions}
           productStatusOptions={productStatusOptions}
         />
       ),
@@ -909,7 +893,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen ">
       {isEditMode && productLoading && (
         <div className="flex items-center justify-center py-20 text-slate-500">
           <span>Loading product data…</span>
@@ -932,7 +916,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
             onEditorProcessingChange={setIsEditorProcessing}
           />
 
-          <div className="rounded-2xl border border-slate-200 bg-background px-6 py-6 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white px-6 py-6 shadow-sm">
             <CustomTab
               tabs={tabItems}
               className="space-y-4"

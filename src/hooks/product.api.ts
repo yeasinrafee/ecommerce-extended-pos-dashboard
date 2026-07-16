@@ -14,6 +14,8 @@ export interface Product {
 	categories?: any[];
 	tags?: any[];
 	stock?: number;
+	/** Target/default quantity entered at product creation — shown as pending stock */
+	defaultQuantity?: number;
 	status?: string;
 	stockStatus?: string;
 	basePrice?: number;
@@ -48,7 +50,8 @@ export interface PagedResult<T> {
 
 export const productKeys = {
 	all: ["products"] as const,
-	paginated: (page: number, limit: number, searchTerm?: string | null) => [...productKeys.all, "paginated", page, limit, searchTerm ?? null] as const,
+	paginated: (page: number, limit: number, searchTerm?: string | null, barcodeId?: string | null) =>
+		[...productKeys.all, "paginated", page, limit, searchTerm ?? null, barcodeId ?? null] as const,
 	list: () => [...productKeys.all, "list"] as const,
 	detail: (id: string) => [...productKeys.all, "detail", id] as const
 };
@@ -94,9 +97,10 @@ export const useCreateProduct = () => {
 	});
 };
 
-const fetchPaginatedProducts = async (page: number, limit: number, searchTerm?: string | null) => {
+const fetchPaginatedProducts = async (page: number, limit: number, searchTerm?: string | null, barcodeId?: string | null) => {
 	const params: Record<string, unknown> = { page, limit };
 	if (searchTerm) params.searchTerm = searchTerm;
+	if (barcodeId) params.barcodeId = barcodeId;
 	const response = await apiClient.get<ApiResponse<Product[]>>(ProductRoutes.getAllPaginated, { params });
 	const products = ensurePayload(response.data, 'Failed to load products');
 	const meta = normalizeMeta(response.data.meta as Record<string, unknown>, page, limit, products.length);
@@ -121,10 +125,10 @@ const deleteProductReq = async (id: string) => {
 	return response.data;
 };
 
-export const usePaginatedProducts = (page: number, limit = 20, searchTerm?: string | null) => {
+export const usePaginatedProducts = (page: number, limit = 20, searchTerm?: string | null, barcodeId?: string | null) => {
 	return useQuery<PagedResult<Product>>({
-		queryKey: productKeys.paginated(page, limit, searchTerm ?? null),
-		queryFn: () => fetchPaginatedProducts(page, limit, searchTerm ?? null),
+		queryKey: productKeys.paginated(page, limit, searchTerm ?? null, barcodeId ?? null),
+		queryFn: () => fetchPaginatedProducts(page, limit, searchTerm ?? null, barcodeId ?? null),
 		placeholderData: keepPreviousData
 	});
 };
@@ -201,7 +205,7 @@ export const usePatchProduct = () => {
 	});
 };
 
-const bulkPatchProductsReq = async (payload: { ids: string[]; status?: string; stockStatus?: string }) => {
+const bulkPatchProductsReq = async (payload: { ids: string[]; status?: string }) => {
 	const response = await apiClient.patch<ApiResponse<{ count: number }>>(ProductRoutes.bulkPatch, payload);
 	return ensurePayload(response.data, 'Failed to bulk update products');
 };

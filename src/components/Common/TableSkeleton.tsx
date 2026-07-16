@@ -23,7 +23,7 @@ export default function TableSkeleton({
   className = "",
 }: TableSkeletonProps) {
   return (
-    <div className={`bg-background p-3 w-full overflow-hidden ${className}`}>
+    <div className={`bg-white p-3 w-full overflow-hidden ${className}`}>
       <div className="rounded-sm border overflow-x-auto w-full max-w-full">
         <UITable className="w-full">
           <TableHeader>

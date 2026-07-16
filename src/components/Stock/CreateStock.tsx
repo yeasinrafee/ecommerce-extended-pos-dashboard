@@ -277,8 +277,8 @@ export default function CreateStock() {
     stockLoading;
 
   return (
-    <div className="mx-auto w-full max-w-325 p-4">
-      <div className="mb-4 flex items-start justify-between gap-3">
+    <div className="mx-auto w-full max-w-7xl p-4">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-lg font-medium">{isEdit ? "Update Stock" : "Create Stock"}</h2>
         <div className="flex items-center gap-2">
           {/* <CustomButton variant="outline" onClick={() => router.push("/dashboard/stocks/manage")}>Back</CustomButton> */}
@@ -405,7 +405,7 @@ export default function CreateStock() {
           </div>
         ) : null}
 
-        <div className="rounded-md border">
+        <div className="rounded-md border overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>

@@ -15,8 +15,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Check,
-  Pause,
-  List,
   Printer,
 } from "lucide-react";
 import {
@@ -26,19 +24,101 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import {
   usePosProducts,
   useCreatePosBill,
   useUpdatePosBill,
   usePosBill,
+  fetchProductByBarcode,
   type PosProduct,
   type PosProductVariation,
   type PosBillDetail,
 } from "@/hooks/pos.api";
 import { useAllStores } from "@/hooks/store.api";
 import { PaymentModal } from "./PaymentModal";
+
+/* ─────────── barcode scanner hook ─────────── */
+
+/**
+ * Captures barcode scanner input reliably.
+ *
+ * Barcode scanners act as HID keyboards — they emit characters very fast
+ * and finish with Enter.  We capture this at the window level regardless
+ * of which element has focus (including search inputs) by comparing the
+ * inter-keystroke timing.
+ *
+ * Key design decisions:
+ *  - `minLength`: ignore anything shorter than a real barcode
+ *  - `interKeyTimeout` (300ms): if no new key arrives within this window
+ *    after the FIRST character, the partial buffer is discarded. 300ms is
+ *    generous enough for any scanner but filters out human typing.
+ *  - We do NOT block on INPUT/TEXTAREA focus — we just let the scan go
+ *    through in parallel so the search box still works normally.
+ */
+function useBarcodeScanner(
+  onScan: (barcode: string) => void,
+  { minLength = 3, maxKeyInterval = 50 } = {},
+) {
+  const bufferRef    = React.useRef<string>("");
+  const lastKeyTime  = React.useRef<number>(0);
+  const timerRef     = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onScanRef    = React.useRef(onScan);
+  onScanRef.current  = onScan;
+
+  React.useEffect(() => {
+    const flush = (e: KeyboardEvent) => {
+      const code = bufferRef.current.replace(/\s/g, "").trim();
+      bufferRef.current = "";
+      lastKeyTime.current = 0;
+      if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+      if (code.length >= minLength) {
+        // Prevent the Enter from triggering search / form submit
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        onScanRef.current(code);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+      if (e.key === "Enter") {
+        if (bufferRef.current.length >= minLength) flush(e);
+        return;
+      }
+
+      if (e.key.length !== 1) return;   // ignore Shift, ArrowLeft, etc.
+
+      const now = Date.now();
+      const interval = now - lastKeyTime.current;
+
+      // Scanner sends chars in bursts — each keystroke arrives < maxKeyInterval ms
+      // apart.  If this char arrives too slowly it's human typing; reset.
+      if (lastKeyTime.current !== 0 && interval > maxKeyInterval) {
+        bufferRef.current = "";
+      }
+
+      lastKeyTime.current = now;
+      bufferRef.current += e.key;
+
+      // Safety: discard if no Enter arrives within 500 ms
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        bufferRef.current = "";
+        lastKeyTime.current = 0;
+        timerRef.current = null;
+      }, 500);
+    };
+
+    // capture:true so we intercept before React's synthetic events
+    window.addEventListener("keydown", handleKeyDown, { capture: true });
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, { capture: true });
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [minLength, maxKeyInterval]);
+}
 
 /* ─────────── cart item shape ─────────── */
 
@@ -82,6 +162,7 @@ const CreatePosOrder: React.FC = () => {
     "NONE" | "PERCENTAGE_DISCOUNT" | "FLAT_DISCOUNT"
   >("NONE");
   const [discountValue, setDiscountValue] = React.useState<number>(0);
+  const [taxPercent, setTaxPercent] = React.useState<number>(0);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = React.useState(false);
 
   React.useEffect(() => {
@@ -115,12 +196,9 @@ const CreatePosOrder: React.FC = () => {
   }, [products, activeCategory]);
 
   /* ── expanded product (variant picker) ── */
-  const [expandedProductId, setExpandedProductId] = React.useState<
-    string | null
-  >(null);
-  const [selectedVariationIds, setSelectedVariationIds] = React.useState<
-    Record<string, boolean>
-  >({});
+  // null = no picker open; set to a PosProduct to show variant picker in right panel
+  const [variantPickerProduct, setVariantPickerProduct] =
+    React.useState<PosProduct | null>(null);
 
   /* ── cart ── */
   const [cart, setCart] = React.useState<Map<string, CartItem>>(new Map());
@@ -129,6 +207,45 @@ const CreatePosOrder: React.FC = () => {
   const [successBill, setSuccessBill] = React.useState<PosBillDetail | null>(
     null,
   );
+
+  /* ── barcode scanner ── */
+  const [barcodeStatus, setBarcodeStatus] = React.useState<{
+    state: "idle" | "scanning" | "error";
+    message?: string;
+  }>({ state: "idle" });
+  const barcodeStatusTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Stable ref so the barcode callback can call addToCart even though it's
+  // defined after the hook (avoids dependency cycle).
+  const addToCartRef = React.useRef<typeof addToCart | null>(null);
+
+  const handleBarcodeScan = React.useCallback(
+    async (barcode: string) => {
+      // Clear search box in case scanner chars leaked into it
+      setSearchInput("");
+      setBarcodeStatus({ state: "scanning", message: `Looking up: ${barcode}` });
+      if (barcodeStatusTimerRef.current) clearTimeout(barcodeStatusTimerRef.current);
+      try {
+        const product = await fetchProductByBarcode(barcode);
+        if (product.productVariations.length === 0) {
+          addToCartRef.current?.(product);
+          setBarcodeStatus({ state: "idle" });
+        } else {
+          setVariantPickerProduct(product);
+          setBarcodeStatus({ state: "idle" });
+        }
+      } catch {
+        setBarcodeStatus({ state: "error", message: `No product for barcode: ${barcode}` });
+        barcodeStatusTimerRef.current = setTimeout(
+          () => setBarcodeStatus({ state: "idle" }),
+          3000,
+        );
+      }
+    },
+    [],
+  );
+
+  useBarcodeScanner(handleBarcodeScan);
 
   /* ── populate cart from existing bill (edit mode) ── */
   React.useEffect(() => {
@@ -220,6 +337,9 @@ const CreatePosOrder: React.FC = () => {
     });
   };
 
+  // Keep barcode scanner ref in sync
+  addToCartRef.current = addToCart;
+
   const setItemQuantity = (key: string, qty: number) => {
     setCart((prev) => {
       const next = new Map(prev);
@@ -281,8 +401,31 @@ const CreatePosOrder: React.FC = () => {
     } else if (discountType === "FLAT_DISCOUNT") {
       tot -= discountValue;
     }
+    tot = Math.max(0, tot);
+    const taxAmount = tot * (taxPercent / 100);
+    return tot + taxAmount;
+  }, [cartTotal, discountType, discountValue, taxPercent]);
+
+  const taxAmount = React.useMemo(() => {
+    let tot = cartTotal;
+    if (discountType === "PERCENTAGE_DISCOUNT") {
+      tot -= tot * (discountValue / 100);
+    } else if (discountType === "FLAT_DISCOUNT") {
+      tot -= discountValue;
+    }
+    tot = Math.max(0, tot);
+    return tot * (taxPercent / 100);
+  }, [cartTotal, discountType, discountValue, taxPercent]);
+
+  const subtotalAfterDiscount = React.useMemo(() => {
+    let tot = cartTotal;
+    if (discountType === "PERCENTAGE_DISCOUNT") {
+      tot -= tot * (discountValue / 100);
+    } else if (discountType === "FLAT_DISCOUNT") {
+      tot -= discountValue;
+    }
     return Math.max(0, tot);
-  }, [cartBaseTotal, discountType, discountValue]);
+  }, [cartTotal, discountType, discountValue]);
   const cartTotalQty = React.useMemo(
     () => cartItems.reduce((sum, [, item]) => sum + item.quantity, 0),
     [cartItems],
@@ -330,6 +473,7 @@ const CreatePosOrder: React.FC = () => {
       ...(selectedStoreId ? { storeId: selectedStoreId } : {}),
       discountType: discountType !== "NONE" ? discountType : undefined,
       discountValue: discountType !== "NONE" ? discountValue : undefined,
+      tax: taxPercent > 0 ? taxPercent : undefined,
       products: prods,
       ...(payments && payments.length > 0 ? { payments } : {}),
     };
@@ -348,12 +492,13 @@ const CreatePosOrder: React.FC = () => {
         { orderId: editId, payload },
         {
           onSuccess: (data) => {
-            // Backend processes payments in background, so we enrich the
-            // immediate response with payload data for printing/UI.
             const totalInPayload =
               payload.payments?.reduce((s, p) => s + (p.amount || 0), 0) || 0;
             const enriched = {
               ...data,
+              // Prefer backend's own fields; fall back to the local taxPercent
+              taxPercent: data.taxPercent ?? taxPercent,
+              taxAmount: data.taxAmount ?? 0,
               payments: data.payments?.length
                 ? data.payments
                 : payload.payments,
@@ -378,6 +523,9 @@ const CreatePosOrder: React.FC = () => {
             payload.payments?.reduce((s, p) => s + (p.amount || 0), 0) || 0;
           const enriched = {
             ...data,
+            // Prefer backend's own fields; fall back to the local taxPercent
+            taxPercent: data.taxPercent ?? taxPercent,
+            taxAmount: data.taxAmount ?? 0,
             payments: data.payments?.length ? data.payments : payload.payments,
             totalPaid: data.totalPaid || totalInPayload,
             dueAmount:
@@ -396,33 +544,12 @@ const CreatePosOrder: React.FC = () => {
   };
 
   /* ── product actions ── */
-  const toggleProductExpansion = (product: PosProduct) => {
-    if (expandedProductId === product.id) {
-      setExpandedProductId(null);
-    } else {
-      setExpandedProductId(product.id);
-    }
-  };
-
   const handleProductClick = (product: PosProduct) => {
     if (product.productVariations.length === 0) {
       addToCart(product);
       return;
     }
-    toggleProductExpansion(product);
-  };
-
-  const handleAddVariationsToCart = (product: PosProduct) => {
-    const varIds = Object.keys(selectedVariationIds).filter(
-      (id) => selectedVariationIds[id],
-    );
-    if (varIds.length === 0) return;
-    varIds.forEach((vId) => {
-      const variation = product.productVariations.find((v) => v.id === vId);
-      if (variation) addToCart(product, variation);
-    });
-    setExpandedProductId(null);
-    setSelectedVariationIds({});
+    setVariantPickerProduct(product);
   };
 
   const scrollCategories = (dir: "left" | "right") => {
@@ -449,27 +576,27 @@ const CreatePosOrder: React.FC = () => {
     <div className="relative flex flex-col lg:flex-row h-[calc(100vh-80px)] lg:h-[calc(100vh-64px)] bg-gray-50 text-gray-900 font-sans overflow-hidden">
       {/* ════════════ LEFT: Product Panel ════════════ */}
       <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden">
-        {/* Simple Flat Header Area */}
-        <div className="p-4 bg-white border-b border-gray-200 shrink-0">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-3">
-            <h1 className="text-xl font-bold text-gray-900">
+        {/* Header */}
+        <div className="px-4 py-3 bg-white border-b border-gray-200 shrink-0">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900 shrink-0">
               {isEditMode ? "Edit Order" : "Point of Sale (POS)"}
             </h1>
             {stores.length > 0 && (
-              <div className="flex items-center gap-2">
-                <Store className="size-4 text-gray-500" />
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Store className="size-4 text-gray-500 hidden sm:block" />
                 <Select
                   value={selectedStoreId}
                   onValueChange={(v) =>
                     setSelectedStoreId(v === "__none__" ? "" : v)
                   }
                 >
-                  <SelectTrigger className="h-9 w-[180px] bg-white border-gray-300 rounded-sm shadow-none! focus:ring-1 focus:ring-black">
+                  <SelectTrigger className="h-8 w-[140px] sm:w-[180px] bg-white border-gray-300 rounded-full text-xs sm:text-sm shadow-none! focus:ring-1 focus:ring-primary/30">
                     <SelectValue placeholder="Select Store" />
                   </SelectTrigger>
                   <SelectContent
                     position="popper"
-                    className="rounded-sm shadow-none! border-gray-300"
+                    className="rounded-lg shadow-md border-gray-200"
                   >
                     <SelectItem value="__none__">All Stores</SelectItem>
                     {stores.map((s) => (
@@ -483,7 +610,7 @@ const CreatePosOrder: React.FC = () => {
             )}
           </div>
 
-          {/* Clean Flat Search Box */}
+          {/* Clean Search Box */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-gray-400" />
             <input
@@ -492,27 +619,46 @@ const CreatePosOrder: React.FC = () => {
               placeholder="Search product name or SKU..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className="w-full pl-10 pr-10 py-2.5 bg-white border border-gray-300 text-base text-gray-900 rounded-sm focus:outline-none focus:border-black focus:ring-1 focus:ring-black"
+              className="w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 text-sm text-gray-900 rounded-full focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all"
             />
             {searchInput && (
               <button
                 type="button"
                 onClick={() => setSearchInput("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors"
               >
-                <X className="size-5" />
+                <X className="size-4" />
               </button>
             )}
           </div>
+
+          {/* Barcode Scanner Status */}
+          {barcodeStatus.state !== "idle" && (
+            <div
+              className={cn(
+                "mt-2 flex items-center gap-2 px-3 py-1.5 rounded-sm text-xs font-medium border",
+                barcodeStatus.state === "scanning"
+                  ? "bg-primary/5 border-primary/20 text-primary"
+                  : "bg-red-50 border-red-200 text-red-700",
+              )}
+            >
+              {barcodeStatus.state === "scanning" ? (
+                <span className="size-3 rounded-full border-2 border-primary/40 border-t-primary animate-spin shrink-0" />
+              ) : (
+                <X className="size-3 shrink-0" />
+              )}
+              {barcodeStatus.message}
+            </div>
+          )}
         </div>
 
-        {/* Category tabs - Flat Button Design */}
-        <div className="px-4 py-3 bg-white border-b border-gray-200 shrink-0">
+        {/* Category tabs - Rounded pill design */}
+        <div className="px-3 sm:px-4 py-2.5 bg-white border-b border-gray-200 shrink-0">
           <div className="flex items-center gap-2">
             {allCategories.length > 4 && (
               <button
                 onClick={() => scrollCategories("left")}
-                className="shrink-0 size-8 border border-gray-300 bg-gray-50 hover:bg-gray-100 flex items-center justify-center text-gray-600"
+                className="shrink-0 size-8 rounded-full border border-gray-300 bg-gray-50 hover:bg-gray-100 flex items-center justify-center text-gray-600"
               >
                 <ChevronLeft className="size-4" />
               </button>
@@ -525,23 +671,23 @@ const CreatePosOrder: React.FC = () => {
               <button
                 onClick={() => setActiveCategory(null)}
                 className={cn(
-                  "px-4 py-1.5 text-sm font-medium whitespace-nowrap rounded-sm border",
+                  "px-3 sm:px-4 py-1 sm:py-1.5 text-xs sm:text-sm font-semibold whitespace-nowrap rounded-full border transition-colors",
                   !activeCategory
-                    ? "bg-blue-600 border-blue-600 text-white"
-                    : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50",
+                    ? "bg-primary border-primary text-white"
+                    : "bg-white border-gray-300 text-gray-700 hover:border-primary/50 hover:text-primary",
                 )}
               >
-                All Items
+                All Categories
               </button>
               {allCategories.map((cat) => (
                 <button
                   key={cat}
                   onClick={() => setActiveCategory(cat)}
                   className={cn(
-                    "px-4 py-1.5 text-sm font-medium whitespace-nowrap rounded-sm border",
+                    "px-3 sm:px-4 py-1 sm:py-1.5 text-xs sm:text-sm font-semibold whitespace-nowrap rounded-full border transition-colors",
                     activeCategory === cat
-                      ? "bg-blue-600 border-blue-600 text-white"
-                      : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50",
+                      ? "bg-primary border-primary text-white"
+                      : "bg-white border-gray-300 text-gray-700 hover:border-primary/50 hover:text-primary",
                   )}
                 >
                   {cat}
@@ -551,7 +697,7 @@ const CreatePosOrder: React.FC = () => {
             {allCategories.length > 4 && (
               <button
                 onClick={() => scrollCategories("right")}
-                className="shrink-0 size-8 border border-gray-300 bg-gray-50 hover:bg-gray-100 flex items-center justify-center text-gray-600"
+                className="shrink-0 size-8 rounded-full border border-gray-300 bg-gray-50 hover:bg-gray-100 flex items-center justify-center text-gray-600"
               >
                 <ChevronRight className="size-4" />
               </button>
@@ -559,14 +705,14 @@ const CreatePosOrder: React.FC = () => {
           </div>
         </div>
 
-        {/* Product grid - Flat cards */}
-        <div className="flex-1 overflow-y-auto p-4 lg:p-5 pb-24 lg:pb-5">
+        {/* Product grid */}
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-4 xl:p-5 pb-24 lg:pb-5">
           {productsLoading ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4">
               {Array.from({ length: 12 }).map((_, i) => (
                 <div
                   key={i}
-                  className="h-64 bg-gray-200 animate-pulse border border-gray-300 rounded-sm"
+                  className="h-56 sm:h-60 bg-white animate-pulse rounded-lg shadow-sm"
                 />
               ))}
             </div>
@@ -581,155 +727,113 @@ const CreatePosOrder: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4">
               {filteredProducts.map((product) => {
                 const hasVariations = product.productVariations.length > 0;
                 const inCart = isProductInCart(product.id);
                 const cartQty = getProductCartQty(product.id);
-                const isExpanded = expandedProductId === product.id;
+                const isActive = variantPickerProduct?.id === product.id;
+                const pricing = getProductPricing(product);
 
                 return (
                   <div
                     key={product.id}
+                    onClick={() => handleProductClick(product)}
                     className={cn(
-                      "group flex flex-col bg-white border border-gray-300 hover:border-gray-400 rounded-sm relative overflow-hidden transition-colors",
-                      isExpanded && "border-blue-600 ring-1 ring-blue-600",
+                      "group flex flex-col rounded-lg border overflow-hidden cursor-pointer transition-all",
+                      isActive
+                        ? "border-primary ring-2 ring-primary/40 shadow-md bg-white"
+                        : inCart
+                          ? "border-primary/30 ring-1 ring-primary/20 shadow-sm hover:shadow-md bg-white"
+                          : "border-gray-200 shadow-sm hover:border-gray-300 hover:shadow-md bg-white",
                     )}
                   >
-                    {/* Visual Area */}
-                    <div
-                      className="relative h-36 bg-gray-50 flex items-center justify-center p-3 border-b border-gray-200 cursor-pointer"
-                      onClick={() =>
-                        hasVariations
-                          ? toggleProductExpansion(product)
-                          : handleProductClick(product)
-                      }
-                    >
-                      {product.image ? (
-                        <Image
-                          src={product.image}
-                          alt={product.name}
-                          fill
-                          className="object-contain p-1"
-                        />
-                      ) : (
-                        <Package className="size-10 text-gray-200" />
-                      )}
-
-                      {/* Stock Status */}
-                      <div className="absolute top-2 left-2 flex flex-col gap-1">
-                        {product.stock > 0 && product.stock <= 5 && (
-                          <span className="text-[9px] font-bold bg-amber-100 text-amber-800 px-1.5 py-0.5 border border-amber-200 uppercase">
-                            Low Stock
-                          </span>
+                    {/* Image area */}
+                    <div className={cn(
+                      "relative overflow-hidden rounded-t-lg p-2",
+                      inCart ? "bg-primary/5" : "bg-gray-50",
+                    )}>
+                      <div className="relative w-full aspect-4/3 rounded-md overflow-hidden">
+                        {product.image ? (
+                          <Image
+                            src={product.image}
+                            alt={product.name}
+                            fill
+                            className="object-cover"
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center h-full bg-gray-100 rounded-md">
+                            <Package className="size-8 text-gray-300" />
+                          </div>
                         )}
-                        {product.stock <= 0 && (
-                          <span className="text-[9px] font-bold bg-red-100 text-red-800 px-1.5 py-0.5 border border-red-200 uppercase">
+
+                        {/* Stock badge — top right */}
+                        {product.stock > 0 ? (
+                          <span className={cn(
+                            "absolute top-1.5 right-1.5 text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shadow-sm",
+                            product.stock <= 5
+                              ? "bg-rose-500 text-white"
+                              : "bg-emerald-500 text-white",
+                          )}>
+                            {product.stock} In Stock
+                          </span>
+                        ) : (
+                          <span className="absolute top-1.5 right-1.5 text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shadow-sm bg-gray-500 text-white">
                             Out of Stock
                           </span>
                         )}
+
+                        {/* In-cart badge — top left */}
+                        {inCart && (
+                          <div className="absolute top-1.5 left-1.5 bg-primary text-white px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold rounded-full flex items-center gap-0.5 leading-none shadow-sm">
+                            <Check className="size-2.5" /> {cartQty}
+                          </div>
+                        )}
                       </div>
-
-                      {/* In Cart Indicator */}
-                      {inCart && (
-                        <div className="absolute top-2 right-2 bg-green-600 text-white px-1.5 py-0.5 text-[10px] font-bold flex items-center gap-1">
-                          <Check className="size-3" /> {cartQty}
-                        </div>
-                      )}
-
                     </div>
 
-                    {/* Content Area */}
-                    <div className="p-3 flex-1 flex flex-col">
-                      <div className="flex-1">
-                        <div className="flex justify-between items-start mb-1 text-[10px] text-gray-500">
-                          <span className="truncate uppercase font-bold text-gray-400">
-                            {product.sku || "N/A"}
-                          </span>
-                        </div>
-                        <h3 className="text-sm font-bold text-gray-900 leading-tight line-clamp-2">
-                          {product.name}
-                        </h3>
-                      </div>
+                    {/* Info */}
+                    <div className={cn(
+                      "px-2.5 py-2 sm:px-3 sm:py-2.5 flex flex-col gap-0.5 flex-1",
+                      inCart ? "bg-primary/5 bg-opacity-30" : "bg-white",
+                    )}>
+                      <p className="text-[10px] sm:text-[11px] text-gray-400 font-medium uppercase tracking-wide truncate">
+                        SKU: {product.sku || "N/A"}
+                      </p>
+                      <h3 className={cn(
+                        "text-xs sm:text-sm font-bold leading-snug line-clamp-2 flex-1",
+                        inCart ? "text-primary" : "text-gray-900",
+                      )}>
+                        {product.name}
+                      </h3>
 
-                      <div className="mt-2">
-                        <div className="flex items-baseline justify-between mb-2">
-                          <div className="flex flex-col">
-                            <span className="text-sm font-bold text-gray-900 leading-none">
-                              ৳{getProductPricing(product).final.toFixed(0)}
-                            </span>
-                            {(product.discountType === "PERCENTAGE_DISCOUNT" ||
-                              product.discountType === "FLAT_DISCOUNT") && (
-                              <span className="text-[9px] text-gray-400 line-through">
-                                ৳{(product.posPrice > 0 ? product.posPrice : product.Baseprice).toFixed(0)}
-                              </span>
-                            )}
-                          </div>
-                          {hasVariations && (
-                            <span className="text-[10px] text-blue-600 font-bold uppercase">
-                              {product.productVariations.length} Variants
+                      <div className="flex items-center justify-between mt-1.5">
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-sm sm:text-base font-bold text-primary leading-none">
+                            ৳{pricing.final.toFixed(2)}
+                          </span>
+                          {pricing.final < pricing.base && (
+                            <span className="text-[10px] text-gray-400 line-through leading-none mt-0.5">
+                              ৳{pricing.base.toFixed(2)}
                             </span>
                           )}
                         </div>
 
                         {hasVariations ? (
-                          <div className="space-y-1.5">
-                            {isExpanded ? (
-                              <div className="flex flex-col gap-1">
-                                <div className="grid grid-cols-2 gap-1 max-h-24 overflow-y-auto custom-scrollbar p-0.5">
-                                  {product.productVariations.map((v) => {
-                                    const vKey = cartKey(product.id, v.id);
-                                    const vInCart = cartItems.some(([k]) => k === vKey);
-                                    return (
-                                      <button
-                                        key={v.id}
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          if (!vInCart) addToCart(product, v);
-                                        }}
-                                        className={cn(
-                                          "px-1 py-1 text-[9px] font-bold border rounded-sm transition-colors text-center truncate",
-                                          vInCart 
-                                            ? "bg-green-100 border-green-600 text-green-700" 
-                                            : "bg-gray-50 border-gray-200 text-gray-700 hover:border-blue-600 hover:text-blue-600"
-                                        )}
-                                      >
-                                        {v.attributeValue}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setExpandedProductId(null);
-                                  }}
-                                  className="w-full text-[9px] font-bold text-gray-400 hover:text-red-500 py-1 uppercase"
-                                >
-                                  Close Options
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => toggleProductExpansion(product)}
-                                className="w-full py-1.5 text-[10px] font-bold rounded-sm border border-blue-600 text-blue-600 hover:bg-blue-50 uppercase flex items-center justify-center gap-1"
-                              >
-                                <Plus className="size-3" /> Select Options
-                              </button>
-                            )}
-                          </div>
+                          <span className="text-[9px] sm:text-[10px] font-bold text-primary bg-primary/5 border border-primary/20 px-1.5 py-0.5 rounded-full uppercase shrink-0 ml-1">
+                            {product.productVariations.length} opts
+                          </span>
                         ) : (
                           <button
-                            onClick={() => handleProductClick(product)}
-                            disabled={product.stock <= 0}
+                            onClick={(e) => { e.stopPropagation(); handleProductClick(product); }}
                             className={cn(
-                              "w-full py-1.5 text-[10px] font-bold rounded-sm border transition-colors uppercase flex items-center justify-center gap-1",
+                              "size-6 sm:size-7 rounded-md flex items-center justify-center transition-colors shrink-0 ml-1",
                               inCart
-                                ? "bg-green-100 border-green-600 text-green-700"
-                                : "bg-gray-900 border-gray-900 text-white hover:bg-black disabled:bg-gray-100 disabled:border-gray-200 disabled:text-gray-400"
+                                ? "bg-primary text-white hover:bg-primary/90"
+                                : "bg-primary/5 text-primary hover:bg-primary/10",
                             )}
                           >
-                            {inCart ? <><Check className="size-3" /> In Cart</> : <><Plus className="size-3" /> Add To Bag</>}
+                            {inCart ? <Check className="size-3 sm:size-3.5" /> : <Plus className="size-3 sm:size-3.5" />}
                           </button>
                         )}
                       </div>
@@ -743,19 +847,19 @@ const CreatePosOrder: React.FC = () => {
       </div>
 
       {/* Mobile Cart Floating Bar */}
-      {!isCartOpen && (
+      {!isCartOpen && !variantPickerProduct && (
         <div className="lg:hidden absolute bottom-0 left-0 right-0 bg-white border-t border-gray-300 p-4 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-40 flex items-center justify-between">
           <div>
             <p className="text-sm font-bold text-gray-900">
               {cartItems.length} {cartItems.length === 1 ? "Item" : "Items"}
             </p>
-            <p className="text-lg font-bold text-blue-600">
-              ৳{cartTotal.toFixed(2)}
+            <p className="text-lg font-bold text-primary">
+              ৳{finalComputedTotal.toFixed(2)}
             </p>
           </div>
           <button
             onClick={() => setIsCartOpen(true)}
-            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2.5 rounded-sm font-bold hover:bg-blue-700 transition"
+            className="flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-sm font-bold hover:bg-primary/90 transition"
           >
             <ShoppingCart className="size-5" />
             View Order
@@ -766,111 +870,208 @@ const CreatePosOrder: React.FC = () => {
       {/* ════════════ RIGHT: Order Panel ════════════ */}
       <div
         className={cn(
-          "w-full lg:w-[380px] shrink-0 bg-white flex flex-col border-t lg:border-t-0 lg:border-l border-gray-300 h-full lg:h-full min-h-0 overflow-hidden",
-          isCartOpen
+          "w-full lg:w-[400px] xl:w-[420px] 2xl:w-[520px] shrink-0 bg-white flex flex-col border-t lg:border-t-0 lg:border-l border-gray-200 h-full min-h-0 overflow-hidden",
+          isCartOpen || variantPickerProduct
             ? "absolute inset-0 z-50 lg:static lg:z-auto"
             : "hidden lg:flex",
         )}
       >
-        {/* Simple Header */}
-        <div className="p-4 border-b border-gray-300 bg-gray-50 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <ShoppingCart className="size-5 text-gray-500" />
-            {isEditMode ? "Editing Order" : "Current Order"}
-          </h2>
-          <div className="flex items-center gap-2">
-            <span className="bg-gray-200 text-gray-800 px-2 py-0.5 text-xs font-bold rounded-sm border border-gray-300">
-              {cartItems.length} items
-            </span>
-            <button
-              className="lg:hidden p-1.5 bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-sm"
-              onClick={() => setIsCartOpen(false)}
-            >
-              <X className="size-5" />
-            </button>
-          </div>
-        </div>
-
-        {cartItems.length > 0 && (
-          <div className="px-4 py-2 bg-white border-b border-gray-200 flex justify-end">
-            <button
-              onClick={clearCart}
-              className="text-xs text-red-600 hover:text-red-800 font-medium flex items-center gap-1"
-            >
-              <Trash2 className="size-3" /> Clear Cart
-            </button>
-          </div>
-        )}
-
-        {/* Order Items List */}
-        <div className="flex-1 overflow-y-auto">
-          {cartItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center p-6 text-gray-500">
-              <ShoppingCart className="size-12 mb-2 text-gray-300" />
-              <p className="text-base font-semibold text-gray-700">
-                Cart is empty
-              </p>
-              <p className="text-sm">
-                Select items from the products list to begin taking this order.
-              </p>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-200">
-              {cartItems.map(([key, item]) => (
-                <div
-                  key={key}
-                  className="p-3 bg-white hover:bg-gray-50 flex gap-3"
+        {/* ── Variant Picker Panel (replaces cart when open) ── */}
+        {variantPickerProduct ? (
+          <>
+            {/* Header */}
+            <div className="p-4 border-b border-gray-300 bg-gray-50 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <button
+                  onClick={() => setVariantPickerProduct(null)}
+                  className="shrink-0 p-1 hover:bg-gray-200 rounded-sm text-gray-600"
                 >
-                  {/* Thumbnail */}
-                  <div className="size-12 bg-gray-100 border border-gray-200 shrink-0 flex items-center justify-center">
-                    {item.productImage ? (
-                      <div className="relative w-full h-full">
-                        <Image
-                          src={item.productImage}
-                          alt=""
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <Package className="size-5 text-gray-400" />
-                    )}
-                  </div>
+                  <ChevronLeft className="size-4" />
+                </button>
+                <div className="min-w-0">
+                  <p className="text-xs text-gray-500 font-medium uppercase">Select Options</p>
+                  <p className="text-sm font-bold text-gray-900 truncate">
+                    {variantPickerProduct.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                className="lg:hidden p-1.5 bg-gray-200 text-gray-700 hover:bg-gray-300 rounded-sm"
+                onClick={() => { setVariantPickerProduct(null); setIsCartOpen(false); }}
+              >
+                <X className="size-5" />
+              </button>
+            </div>
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0 flex flex-col justify-between">
-                    <div>
-                      <div className="flex justify-between items-start gap-2">
-                        <p className="text-sm font-semibold text-gray-900 leading-tight">
+            {/* Product preview */}
+            <div className="p-4 border-b border-gray-200 bg-white shrink-0 flex gap-3 items-center">
+              <div className="size-14 bg-gray-100 border border-gray-200 shrink-0 relative overflow-hidden rounded-sm">
+                {variantPickerProduct.image ? (
+                  <Image
+                    src={variantPickerProduct.image}
+                    alt={variantPickerProduct.name}
+                    fill
+                    className="object-contain p-1"
+                  />
+                ) : (
+                  <div className="size-full flex items-center justify-center">
+                    <Package className="size-6 text-gray-300" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-gray-400 uppercase font-bold truncate">{variantPickerProduct.sku}</p>
+                <p className="text-sm font-bold text-gray-900 leading-tight line-clamp-2">{variantPickerProduct.name}</p>
+                <p className="text-sm font-bold text-gray-900 mt-0.5">
+                  ৳{getProductPricing(variantPickerProduct).final.toFixed(0)}
+                </p>
+              </div>
+            </div>
+
+            {/* Variants grid */}
+            <div className="flex-1 overflow-y-auto p-4">
+              <p className="text-xs font-bold text-gray-500 uppercase mb-3">
+                {variantPickerProduct.productVariations.length} Available Options — tap to add
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {variantPickerProduct.productVariations.map((v) => {
+                  const vKey = cartKey(variantPickerProduct.id, v.id);
+                  const vInCart = cart.has(vKey);
+                  const vQty = cart.get(vKey)?.quantity ?? 0;
+                  const pricing = getProductPricing(variantPickerProduct, v);
+
+                  return (
+                    <button
+                      key={v.id}
+                      onClick={() => {
+                        if (vInCart) {
+                          removeFromCart(vKey);
+                        } else {
+                          addToCart(variantPickerProduct, v);
+                        }
+                      }}
+                      className={cn(
+                        "flex flex-col items-start p-3 border rounded-sm text-left transition-colors",
+                        vInCart
+                          ? "bg-green-50 border-green-500 text-green-800"
+                          : "bg-white border-gray-200 text-gray-800 hover:border-primary hover:bg-primary/5",
+                      )}
+                    >
+                      <div className="flex items-center justify-between w-full mb-1">
+                        <span className="text-xs font-bold truncate">{v.attributeValue}</span>
+                        {vInCart ? (
+                          <span className="bg-green-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm ml-1 shrink-0">
+                            ×{vQty}
+                          </span>
+                        ) : (
+                          <Plus className="size-3.5 text-gray-400 shrink-0" />
+                        )}
+                      </div>
+                      <span className="text-xs font-semibold text-gray-600">
+                        ৳{pricing.final.toFixed(0)}
+                        {pricing.final < pricing.base && (
+                          <span className="text-[10px] text-gray-400 line-through ml-1">
+                            ৳{pricing.base.toFixed(0)}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Done button */}
+            <div className="p-4 border-t border-gray-300 bg-gray-50 shrink-0">
+              {(() => {
+                const selectedCount = variantPickerProduct.productVariations.filter(
+                  (v) => cart.has(cartKey(variantPickerProduct.id, v.id))
+                ).length;
+                return (
+                  <button
+                    onClick={() => setVariantPickerProduct(null)}
+                    className={cn(
+                      "w-full py-2.5 font-bold text-sm rounded-sm flex items-center justify-center gap-2 transition-colors",
+                      selectedCount > 0
+                        ? "bg-green-600 text-white hover:bg-green-700"
+                        : "bg-gray-200 text-gray-500 hover:bg-gray-300",
+                    )}
+                  >
+                    <Check className="size-4" />
+                    {selectedCount > 0 ? `Done — ${selectedCount} option${selectedCount > 1 ? "s" : ""} added` : "Close"}
+                  </button>
+                );
+              })()}
+            </div>
+          </>
+        ) : (
+          <>
+            {/* ── Cart Header ── */}
+            <div className="px-5 py-4 border-b border-gray-200 bg-white flex items-center justify-between shrink-0">
+              <h2 className="text-base font-bold text-gray-900">
+                {isEditMode ? "Editing Order" : "Current Order"}
+              </h2>
+              <div className="flex items-center gap-3">
+                {cartItems.length > 0 && (
+                  <button
+                    onClick={clearCart}
+                    className="text-sm font-semibold text-red-500 hover:text-red-600 transition-colors"
+                  >
+                    Clear All
+                  </button>
+                )}
+                <button
+                  className="lg:hidden p-1.5 text-gray-500 hover:text-gray-800 transition-colors"
+                  onClick={() => setIsCartOpen(false)}
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* ── Order Items List ── */}
+            <div className="flex-1 overflow-y-auto bg-white">
+              {cartItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center p-6 text-gray-400">
+                  <ShoppingCart className="size-12 mb-3 text-gray-200" />
+                  <p className="text-sm font-semibold text-gray-600">Cart is empty</p>
+                  <p className="text-xs mt-1 text-gray-400">Select items from the product list to begin.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {cartItems.map(([key, item]) => (
+                    <div key={key} className="flex items-center gap-2 px-4 py-3 hover:bg-gray-50 transition-colors">
+                      {/* Thumbnail */}
+                      <div className="size-10 rounded-lg bg-gray-100 border border-gray-200 shrink-0 overflow-hidden relative">
+                        {item.productImage ? (
+                          <Image src={item.productImage} alt="" fill className="object-cover" />
+                        ) : (
+                          <div className="flex items-center justify-center h-full">
+                            <Package className="size-4 text-gray-300" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Name + unit price — flex-1 + min-w-0 ensures truncation, never pushes siblings */}
+                      <div className="flex-1 min-w-0 overflow-hidden">
+                        <p className="text-sm font-semibold text-gray-900 truncate leading-tight">
                           {item.productName}
                         </p>
-                        <button
-                          onClick={() => removeFromCart(key)}
-                          className="shrink-0 text-red-400 hover:text-red-600 transition"
-                          title="Remove item"
-                        >
-                          <X className="size-4" />
-                        </button>
-                      </div>
-                      {item.variationLabel && (
-                        <p className="text-xs text-blue-600 font-medium mt-0.5">
-                          Variant: {item.variationLabel}
+                        {item.variationLabel && (
+                          <p className="text-[10px] text-primary/70 font-medium truncate">{item.variationLabel}</p>
+                        )}
+                        <p className="text-[10px] text-gray-400 mt-0.5 truncate">
+                          ৳{item.unitPrice.toFixed(2)} / unit
                         </p>
-                      )}
-                    </div>
+                      </div>
 
-                    <div className="flex items-center justify-between mt-2">
-                      <p className="text-sm font-bold text-gray-900">
-                        ৳{(item.unitPrice * item.quantity).toFixed(2)}
-                      </p>
-
-                      {/* Control */}
-                      <div className="flex items-center border border-gray-300 rounded-sm bg-white">
+                      {/* Qty stepper — fixed width, never shrinks */}
+                      <div className="flex items-center shrink-0">
                         <button
                           onClick={() => updateQuantity(key, -1)}
-                          className="w-7 h-7 flex items-center justify-center text-gray-600 hover:bg-gray-100 border-r border-gray-300"
+                          className="w-7 h-7 rounded-l border border-gray-300 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors"
                         >
-                          <Minus className="size-3.5" />
+                          <Minus className="size-3" />
                         </button>
                         <input
                           type="number"
@@ -878,116 +1079,152 @@ const CreatePosOrder: React.FC = () => {
                           value={item.quantity === 0 ? "" : item.quantity}
                           onChange={(e) => {
                             const valStr = e.target.value;
-                            if (valStr === "") {
-                              setItemQuantity(key, 0);
-                              return;
-                            }
+                            if (valStr === "") { setItemQuantity(key, 0); return; }
                             const val = parseInt(valStr, 10);
                             if (!isNaN(val)) setItemQuantity(key, val);
                           }}
-                          onBlur={() => {
-                            if (item.quantity === 0) setItemQuantity(key, 1);
-                          }}
-                          className="w-12 h-7 text-center text-sm font-semibold text-gray-900 outline-none bg-transparent"
+                          onBlur={() => { if (item.quantity === 0) setItemQuantity(key, 1); }}
+                          className="w-16 h-7 text-center text-sm font-semibold text-gray-900 border-y border-gray-300 bg-white outline-none"
                         />
                         <button
                           onClick={() => updateQuantity(key, 1)}
-                          className="w-7 h-7 flex items-center justify-center text-gray-600 hover:bg-gray-100 border-l border-gray-300"
+                          className="w-7 h-7 rounded-r border border-gray-300 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors"
                         >
-                          <Plus className="size-3.5" />
+                          <Plus className="size-3" />
+                        </button>
+                      </div>
+
+                      {/* Line total + remove — fixed min-width */}
+                      <div className="flex flex-col items-end justify-center shrink-0 w-16">
+                        <span className="text-xs font-bold text-primary whitespace-nowrap">
+                          ৳{(item.unitPrice * item.quantity).toFixed(2)}
+                        </span>
+                        {item.unitPrice < item.basePrice && (
+                          <span className="text-[9px] text-gray-400 line-through leading-none">
+                            ৳{(item.basePrice * item.quantity).toFixed(2)}
+                          </span>
+                        )}
+                        <button
+                          onClick={() => removeFromCart(key)}
+                          className="mt-1 text-red-400 hover:text-red-500 transition-colors"
+                          title="Remove"
+                        >
+                          <X className="size-3" />
                         </button>
                       </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Action Panel (Flat) */}
-        {cartItems.length > 0 && (
-          <div className="bg-gray-50 border-t border-gray-300 px-4 py-4 shrink-0">
-            <div className="flex justify-between items-center text-sm text-gray-600 mb-1">
-              <span>Subtotal ({cartTotalQty} items)</span>
-              <span>৳{cartTotal.toFixed(2)}</span>
-            </div>
-
-            <div className="flex justify-between items-center text-sm text-gray-800 mb-2 font-semibold">
-              <span>Order Discount</span>
-            </div>
-            <div className="flex gap-2 mb-4">
-              <Select
-                value={discountType}
-                onValueChange={(
-                  v: "NONE" | "PERCENTAGE_DISCOUNT" | "FLAT_DISCOUNT",
-                ) => {
-                  setDiscountType(v);
-                  if (v === "NONE") setDiscountValue(0);
-                }}
-              >
-                <SelectTrigger className="flex-1 bg-white border-gray-300 shadow-none">
-                  <SelectValue placeholder="Discount Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="NONE">No Discount</SelectItem>
-                  <SelectItem value="PERCENTAGE_DISCOUNT">
-                    % Discount
-                  </SelectItem>
-                  <SelectItem value="FLAT_DISCOUNT">Flat Amount</SelectItem>
-                </SelectContent>
-              </Select>
-              {discountType !== "NONE" && (
-                <input
-                  type="number"
-                  placeholder="Value"
-                  value={discountValue || ""}
-                  onChange={(e) => setDiscountValue(Number(e.target.value))}
-                  className="w-24 px-2 border border-gray-300 rounded-sm focus:outline-none focus:ring-1 focus:ring-black"
-                />
               )}
             </div>
 
-            <div className="flex justify-between items-end border-t border-gray-300 pt-2 mt-2 mb-4">
-              <span className="text-sm font-bold text-gray-800 uppercase">
-                Total
-              </span>
-              <span className="text-2xl font-bold text-gray-900">
-                ৳{finalComputedTotal.toFixed(2)}
-              </span>
-            </div>
+            {/* ── Summary + Actions ── */}
+            {cartItems.length > 0 && (
+              <div className="bg-gray-50 border-t border-gray-200 px-4 py-2 shrink-0 space-y-1.5">
 
-            <div className="flex gap-2 flex-col sm:flex-row">
-              <button
-                onClick={() => {
-                  handleSubmit();
-                  if (
-                    typeof window !== "undefined" &&
-                    window.innerWidth < 1024
-                  ) {
-                    setIsCartOpen(false);
-                  }
-                }}
-                disabled={isSubmitting || cartItems.length === 0}
-                className="flex-1 shrink flex items-center justify-center gap-2 bg-white border border-green-600 text-green-700 text-sm font-bold rounded-sm py-2.5 hover:bg-green-50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-              >
-                {isSubmitting ? (
-                  <span className="size-4 border-2 border-green-600/50 border-r-green-600 rounded-full animate-spin" />
-                ) : (
-                  <Check className="size-4" />
-                )}
-                Save Order
-              </button>
+                {/* Discount type, value and tax */}
+                <div className="grid grid-cols-2 xl:grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-[10px] text-gray-500 font-medium mb-0.5">Discount Type</label>
+                    <select
+                      value={discountType}
+                      onChange={(e) => {
+                        const v = e.target.value as typeof discountType;
+                        setDiscountType(v);
+                        if (v === "NONE") setDiscountValue(0);
+                      }}
+                      className="w-full h-7 rounded-md border border-gray-300 bg-white text-xs text-gray-700 px-2 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary"
+                    >
+                      <option value="NONE">No Discount</option>
+                      <option value="PERCENTAGE_DISCOUNT">% Discount</option>
+                      <option value="FLAT_DISCOUNT">Flat</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-500 font-medium mb-0.5">Disc. Value</label>
+                    <input
+                      type="number"
+                      min="0"
+                      placeholder="0"
+                      value={discountValue || ""}
+                      disabled={discountType === "NONE"}
+                      onChange={(e) => setDiscountValue(Number(e.target.value))}
+                      className="w-full h-7 rounded-md border border-gray-300 bg-white text-xs text-gray-900 px-2 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary disabled:bg-gray-100 disabled:text-gray-400"
+                    />
+                  </div>
+                  <div className="col-span-2 xl:col-span-1">
+                    <label className="block text-[10px] text-gray-500 font-medium mb-0.5">Tax (%)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      placeholder="0"
+                      value={taxPercent || ""}
+                      onChange={(e) => setTaxPercent(Math.max(0, Number(e.target.value)))}
+                      className="w-full h-7 rounded-md border border-gray-300 bg-white text-xs text-gray-900 px-2 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary"
+                    />
+                  </div>
+                </div>
 
-              <button
-                onClick={() => setIsPaymentModalOpen(true)}
-                disabled={isSubmitting || cartItems.length === 0}
-                className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white text-base font-bold rounded-sm py-2.5 hover:bg-green-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-              >
-                Pay & Save
-              </button>
-            </div>
-          </div>
+                {/* Breakdown rows */}
+                <div className="space-y-0.5">
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>Subtotal ({cartTotalQty} items)</span>
+                    <span>৳{cartTotal.toFixed(2)}</span>
+                  </div>
+                  {discountType !== "NONE" && discountValue > 0 && (
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>Discount{discountType === "PERCENTAGE_DISCOUNT" ? ` (${discountValue}%)` : " (flat)"}</span>
+                      <span className="text-rose-500">−৳{(cartTotal - subtotalAfterDiscount).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {taxPercent > 0 && (
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>Tax ({taxPercent}%)</span>
+                      <span>৳{taxAmount.toFixed(2)}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Total */}
+                <div className="flex justify-between items-center border-t border-gray-200 pt-1.5">
+                  <span className="text-sm font-bold text-gray-800">Total</span>
+                  <span className="text-lg font-bold text-primary">৳{finalComputedTotal.toFixed(2)}</span>
+                </div>
+
+                {/* Buttons */}
+                <div className="space-y-1.5 pb-1">
+                  <button
+                    onClick={() => setIsPaymentModalOpen(true)}
+                    disabled={isSubmitting || cartItems.length === 0}
+                    className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white text-xs font-bold rounded-xl py-2 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isSubmitting ? (
+                      <span className="size-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <ShoppingCart className="size-3.5" />
+                    )}
+                    Complete Sale
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleSubmit();
+                      if (typeof window !== "undefined" && window.innerWidth < 1024) setIsCartOpen(false);
+                    }}
+                    disabled={isSubmitting || cartItems.length === 0}
+                    className="w-full flex items-center justify-center gap-2 bg-white border border-gray-300 text-gray-600 text-xs font-semibold rounded-xl py-2 hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isSubmitting ? (
+                      <span className="size-3.5 border-2 border-gray-400/50 border-t-gray-600 rounded-full animate-spin" />
+                    ) : (
+                      <Printer className="size-3.5" />
+                    )}
+                    Save Order
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -1034,7 +1271,7 @@ const CreatePosOrder: React.FC = () => {
                     m.printPosReceipt(successBill),
                   );
                 }}
-                className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-md font-bold hover:bg-blue-700 transition"
+                className="w-full flex items-center justify-center gap-2 bg-primary text-white py-3 rounded-md font-bold hover:bg-primary/90 transition"
               >
                 <Printer className="size-5" />
                 Print POS Receipt

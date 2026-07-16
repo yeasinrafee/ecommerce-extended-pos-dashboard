@@ -88,7 +88,7 @@ export default function ViewOrder({ orderId }: ViewOrderProps) {
 
   if (error || !order) {
     return (
-      <div className="p-8 text-center bg-background rounded-lg border border-destructive/20 border-dashed">
+      <div className="p-8 text-center bg-white rounded-lg border border-destructive/20 border-dashed">
         <h2 className="text-xl font-semibold text-destructive">
           Error Loading Order
         </h2>
@@ -106,7 +106,7 @@ export default function ViewOrder({ orderId }: ViewOrderProps) {
     );
   }
 
-  const getStatusColor = (status: Order["orderStatus"]) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
       case "PENDING":
         return "bg-yellow-100 text-yellow-800 border-yellow-200";

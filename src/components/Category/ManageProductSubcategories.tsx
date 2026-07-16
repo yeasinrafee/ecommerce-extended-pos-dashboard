@@ -133,7 +133,11 @@ export default function ManageProductSubcategories() {
       },
       {
         header: "Products",
-        cell: () => '-',
+        cell: (row) => (
+          <span className="inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
+            {(row as any).productCount ?? 0}
+          </span>
+        ),
         align: 'center'
       }
     ]
@@ -181,12 +185,12 @@ export default function ManageProductSubcategories() {
                 <DropdownMenuItem onClick={() => handleEdit(cat)}>
                   Edit
                 </DropdownMenuItem>
-                {/* <DropdownMenuItem
+                <DropdownMenuItem
                   variant="destructive"
                   onClick={() => handleDelete(cat)}
                 >
                   Delete
-                </DropdownMenuItem> */}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}

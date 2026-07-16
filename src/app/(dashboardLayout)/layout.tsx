@@ -1,19 +1,19 @@
-"use client";
+'use client';
 
-import { ReactNode, useState } from "react";
-import Sidebar from "@/components/Dashboard/Shared/Sidebar";
-import Header from "@/components/Dashboard/Shared/Header";
-import { routes } from "@/components/Dashboard/Routes/Routes";
-import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { ReactNode, useState } from 'react';
+import Sidebar from '@/components/Dashboard/Shared/Sidebar';
+import Header from '@/components/Dashboard/Shared/Header';
+import { routes } from '@/components/Dashboard/Routes/Routes';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const isMobile = useMediaQuery("(max-width: 768px)");
+  const isMobile = useMediaQuery('(max-width: 768px)');
   const toggleMobileSidebar = () => setMobileOpen(!mobileOpen);
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className='flex h-screen bg-white'>
       {/* Sidebar */}
       <Sidebar
         routes={routes}
@@ -24,7 +24,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       />
 
       {/* Main Content */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className='flex flex-1 flex-col overflow-hidden'>
         {/* Header */}
         <Header
           onMenuClick={toggleMobileSidebar}
@@ -36,7 +36,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         />
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto p-6">{children}</main>
+        <main className='flex-1 overflow-auto bg-[#f4f5f7] p-6'>
+          {children}
+        </main>
       </div>
     </div>
   );

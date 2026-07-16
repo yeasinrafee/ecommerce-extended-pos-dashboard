@@ -1,11 +1,9 @@
 import React from "react";
-// Control typing from react-hook-form is intentionally relaxed to avoid
-// generic variance errors when the parent form uses a specific field type.
-// The form `control` is still used at runtime and validated by react-hook-form.
-
+import { BiBarcodeReader } from "react-icons/bi";
 import CustomInput from "../../FormFields/CustomInput";
 import CustomSelect from "../../FormFields/CustomSelect";
 import CustomDatePicker from "../../FormFields/CustomDatePicker";
+import { Label } from "@/components/ui/label";
 
 interface Option {
   label: string;
@@ -17,6 +15,9 @@ interface GeneralInformationProps {
   setBasePrice: (value: number | null) => void;
   posPrice: number | null;
   setPosPrice: (value: number | null) => void;
+  barcode: string;
+  setBarcode: (value: string) => void;
+  barcodeError?: string;
   selectedDiscountType: string;
   discountValue: number | null;
   setDiscountValue: (value: number | null) => void;
@@ -24,8 +25,6 @@ interface GeneralInformationProps {
   setDiscountStart: (value: Date | null) => void;
   discountEnd: Date | null;
   setDiscountEnd: (value: Date | null) => void;
-  stockQuantity: number | null;
-  setStockQuantity: (value: number | null) => void;
   sku: string;
   setSku: (value: string) => void;
   weight: number | null;
@@ -39,7 +38,6 @@ interface GeneralInformationProps {
   // allow any to avoid cross-file react-hook-form generic incompatibilities
   control: any;
   discountOptions: Option[];
-  stockStatusOptions: Option[];
   productStatusOptions: Option[];
 }
 
@@ -48,6 +46,9 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
   setBasePrice,
   posPrice,
   setPosPrice,
+  barcode,
+  setBarcode,
+  barcodeError,
   selectedDiscountType,
   discountValue,
   setDiscountValue,
@@ -55,8 +56,6 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
   setDiscountStart,
   discountEnd,
   setDiscountEnd,
-  stockQuantity,
-  setStockQuantity,
   sku,
   setSku,
   weight,
@@ -69,9 +68,11 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
   setHeightCm,
   control,
   discountOptions,
-  stockStatusOptions,
   productStatusOptions,
 }) => {
+  const barcodeInputRef = React.useRef<HTMLInputElement>(null);
+  const barcodeBlurTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const finalPrice = React.useMemo(() => {
     if (basePrice == null) return "";
     const disc = discountValue ?? 0;
@@ -84,9 +85,11 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
         return basePrice;
     }
   }, [basePrice, selectedDiscountType, discountValue]);
+
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2">
+      {/* Base Price + POS Price + Final Price — same row */}
+      <div className="grid gap-4 md:grid-cols-3">
         <CustomInput
           label="Base Price"
           type="number"
@@ -95,20 +98,6 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
           requiredMark
           placeholder="0.00"
         />
-        <div>
-          <label className="block text-sm font-medium text-slate-700">
-            Final Price
-          </label>
-          <CustomInput
-            type="number"
-            value={finalPrice === "" ? "" : finalPrice}
-            disabled
-            className="mt-1"
-          />
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
         <CustomInput
           label="POS Price"
           type="number"
@@ -117,8 +106,67 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
           placeholder="Optional"
           min={1}
         />
+        <div>
+          <label className="block text-sm font-medium text-slate-700">Final Price</label>
+          <CustomInput
+            type="number"
+            value={finalPrice === "" ? "" : finalPrice}
+            disabled
+            className="mt-1 border-rose-300 bg-rose-50/40 text-rose-700 cursor-not-allowed"
+          />
+        </div>
       </div>
 
+      {/* Barcode + SKU */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="barcode-input">Barcode</Label>
+          <div className="relative">
+            <input
+              id="barcode-input"
+              ref={barcodeInputRef}
+              type="text"
+              inputMode="numeric"
+              pattern="\d*"
+              value={barcode}
+              onChange={(e) => setBarcode(e.target.value)}
+              onBlur={() => {
+                barcodeBlurTimerRef.current = setTimeout(() => {
+                  if (document.activeElement === document.body || document.activeElement === null) {
+                    barcodeInputRef.current?.focus();
+                  }
+                }, 0);
+              }}
+              onFocus={() => {
+                if (barcodeBlurTimerRef.current !== null) {
+                  clearTimeout(barcodeBlurTimerRef.current);
+                  barcodeBlurTimerRef.current = null;
+                }
+              }}
+              placeholder="Digits only (e.g. 1234567890)"
+              className={`flex h-9 w-full rounded-md border bg-transparent px-3 py-1 pr-9 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring ${barcodeError ? "border-destructive focus-visible:ring-destructive" : "border-input"}`}
+              autoComplete="off"
+              aria-invalid={!!barcodeError}
+              aria-describedby={barcodeError ? "barcode-error" : undefined}
+            />
+            <BiBarcodeReader
+              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"
+              size={18}
+              aria-hidden="true"
+            />
+          </div>
+          {barcodeError && (
+            <p id="barcode-error" className="text-xs text-destructive">{barcodeError}</p>
+          )}
+        </div>
+        <CustomInput
+          label="SKU"
+          value={sku}
+          onChange={(event: React.ChangeEvent<HTMLInputElement>) => setSku(event.target.value)}
+        />
+      </div>
+
+      {/* Discount */}
       <div className="grid gap-4 md:grid-cols-2">
         <CustomSelect
           name="discountType"
@@ -126,15 +174,15 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
           label="Discount Type"
           options={discountOptions}
         />
-          <CustomInput
-            label="Discount Value"
-            type="number"
-            value={discountValue === null ? "" : discountValue}
-            onValueChange={(value) => setDiscountValue(value as number | null)}
-            placeholder="0"
-            min={0}
-            disabled={selectedDiscountType === "NONE"}
-          />
+        <CustomInput
+          label="Discount Value"
+          type="number"
+          value={discountValue === null ? "" : discountValue}
+          onValueChange={(value) => setDiscountValue(value as number | null)}
+          placeholder="0"
+          min={0}
+          disabled={selectedDiscountType === "NONE"}
+        />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -152,89 +200,60 @@ const GeneralInformation: React.FC<GeneralInformationProps> = ({
         />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <CustomInput
-          label="Stock Quantity"
-          type="number"
-          value={stockQuantity === null ? "" : stockQuantity}
-          onValueChange={(value) => setStockQuantity(value as number | null)}
-          requiredMark
-          placeholder="0"
-          min={0}
-        />
-        <CustomInput
-          label="SKU"
-          value={sku}
-          onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-            setSku(event.target.value)
-          }
-        />
-      </div>
-
-      <div className="">
-        <p className="my-2 text-xs text-slate-500">
-          Either provide weight or all three dimensions (Length, Width, Height).
+      {/* Weight + Dimensions + Status — all in one row on large screens */}
+      <div>
+        <p className="mb-2 text-xs text-slate-500">
+          Weight and dimensions are optional — used for shipping cost calculations.
         </p>
-        <div className="grid gap-4 md:grid-cols-2">
-          <CustomInput
-            label="Weight (grams/Ml)"
-            type="number"
-            value={weight === null ? "" : weight}
-            onValueChange={(value) => setWeight(value as number | null)}
-            placeholder="0"
-            min={0}
-            requiredMark
-          />
-
-          <div>
-            <div className="mt-1 grid grid-cols-3 gap-2">
-              <CustomInput
-                label="Length"
-                type="number"
-                value={lengthCm === null ? "" : lengthCm}
-                onValueChange={(value) => setLengthCm(value as number | null)}
-                placeholder="0"
-                min={0}
-                requiredMark
-              />
-              <CustomInput
-                label="Width"
-                type="number"
-                value={widthCm === null ? "" : widthCm}
-                onValueChange={(value) => setWidthCm(value as number | null)}
-                placeholder="0"
-                min={0}
-                requiredMark
-              />
-              <CustomInput
-                label="Height"
-                type="number"
-                value={heightCm === null ? "" : heightCm}
-                onValueChange={(value) => setHeightCm(value as number | null)}
-                placeholder="0"
-                min={0}
-                requiredMark
-              />
-            </div>
+        <div className="space-y-4">
+                    {/* Dimensions (Length, Width, Height) — aligned together in a 3-column grid */}
+          <div className="grid gap-4 md:grid-cols-3">
+            <CustomInput
+              label="Length (cm)"
+              type="number"
+              value={lengthCm === null ? "" : lengthCm}
+              onValueChange={(value) => setLengthCm(value as number | null)}
+              placeholder="Optional"
+              min={0}
+            />
+            <CustomInput
+              label="Width (cm)"
+              type="number"
+              value={widthCm === null ? "" : widthCm}
+              onValueChange={(value) => setWidthCm(value as number | null)}
+              placeholder="Optional"
+              min={0}
+            />
+            <CustomInput
+              label="Height (cm)"
+              type="number"
+              value={heightCm === null ? "" : heightCm}
+              onValueChange={(value) => setHeightCm(value as number | null)}
+              placeholder="Optional"
+              min={0}
+            />
           </div>
-        </div>
-      </div>
+          {/* Weight & Status — aligned together in a 2-column grid */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <CustomInput
+              label="Weight (g/ml)"
+              type="number"
+              value={weight === null ? "" : weight}
+              onValueChange={(value) => setWeight(value as number | null)}
+              placeholder="Optional"
+              min={0}
+            />
+            <CustomSelect
+              name="status"
+              control={control}
+              label="Product Status"
+              requiredMark
+              options={productStatusOptions}
+            />
+          </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <CustomSelect
-          name="stockStatus"
-          control={control}
-          label="Stock Status"
-          requiredMark
-          options={stockStatusOptions}
-        />
-        <CustomSelect
-          name="status"
-          control={control}
-          label="Product Status"
-          requiredMark
-          options={productStatusOptions}
-        />
+
+        </div>
       </div>
     </div>
   );

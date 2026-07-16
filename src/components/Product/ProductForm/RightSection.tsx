@@ -112,12 +112,12 @@ const RightSection: React.FC<RightSectionProps> = ({
 
   return (
     <div className="flex w-full flex-col gap-6">
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-background px-6 py-6 shadow-sm">
+      <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-6 shadow-sm">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Images</h2>
             <p className="text-sm text-slate-500">
-              Upload one hero image plus up to 10 gallery shots.
+              Upload a hero image and optional gallery shots.
             </p>
           </div>
         </div>
@@ -126,7 +126,6 @@ const RightSection: React.FC<RightSectionProps> = ({
           <div>
             <label className="block text-sm font-medium text-slate-700">
               Product image
-              <span className="ml-1 text-destructive">*</span>
             </label>
             {/* Existing main image preview in edit mode */}
             {mainImageExistingUrl && !mainImage && (
@@ -196,7 +195,7 @@ const RightSection: React.FC<RightSectionProps> = ({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-background px-4 py-4 shadow-sm">
+      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
         <h3 className="text-lg font-semibold text-slate-900">
           Categories
           <span className="ml-1 text-destructive">*</span>
@@ -229,7 +228,7 @@ const RightSection: React.FC<RightSectionProps> = ({
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-background px-4 py-4 shadow-sm">
+      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
         <h3 className="text-lg font-semibold text-slate-900">
           Product Tags
         </h3>

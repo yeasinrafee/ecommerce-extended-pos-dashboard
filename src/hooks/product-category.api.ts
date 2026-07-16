@@ -195,8 +195,9 @@ export const useDeleteCategory = () => {
       await queryClient.invalidateQueries({ queryKey: categoryKeys.all });
     },
     onError: (err: any) => {
-      const message = err?.response?.data?.message || err?.message || "Failed to delete category";
-      toast.error(message);
+      const detailedMessage = err?.response?.data?.errors?.[0]?.message;
+      const fallbackMessage = err?.response?.data?.message || err?.message || "Failed to delete category";
+      toast.error(detailedMessage || fallbackMessage, { duration: 6000 });
     }
   });
 };

@@ -68,7 +68,12 @@ const Header = ({
   setCollapsed,
 }: HeaderProps) => {
   const [internalCollapsed, setInternalCollapsed] = useState(collapsed);
+  const [mounted, setMounted] = useState(false);
   const isMobile = useMediaQuery("(max-width: 768px)");
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const { data: notificationData } = useNotifications();
   const { mutate: markSeen } = useMarkNotificationsSeen();
@@ -120,21 +125,19 @@ const Header = ({
   return (
     <header
       className={cn(
-        "flex h-16 items-center justify-between border-b bg-background px-6",
+        "flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6",
         className
       )}
     >
       <div className="flex items-center gap-4">
-        {isMobile && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onMenuClick}
-            className="md:hidden"
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onMenuClick}
+          className="md:hidden"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
 
         <Button
           variant="ghost"
@@ -177,6 +180,7 @@ const Header = ({
               variant="ghost"
               size="icon"
               className="relative bg-gray-100 cursor-pointer"
+              suppressHydrationWarning
             >
               <Bell className="h-5 w-5" />
               {notificationData?.unseenCount !== undefined && notificationData.unseenCount > 0 && (
@@ -239,15 +243,16 @@ const Header = ({
               variant="ghost"
               size="icon"
               className="rounded-full cursor-pointer"
+              suppressHydrationWarning
             >
               <Avatar className="h-10 w-10">
                 <AvatarImage
-                  src={user?.image || undefined}
+                  src={mounted ? user?.image || undefined : undefined}
                   alt={user?.name ?? "user"}
                 />
                 <AvatarFallback>
                   <InitialsAvatar
-                    name={user?.name}
+                    name={mounted ? user?.name : ""}
                     className="w-full h-full"
                   />
                 </AvatarFallback>

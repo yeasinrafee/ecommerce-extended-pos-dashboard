@@ -296,7 +296,7 @@ export default function CreateBlog({ open, onOpenChange, defaultValues, onSave, 
           />
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-background px-4 py-4 shadow-sm">
+        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
           <h3 className="text-lg font-semibold text-slate-900">
             Tags
           </h3>

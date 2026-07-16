@@ -165,8 +165,9 @@ export const useDeleteBrand = () => {
       await queryClient.invalidateQueries({ queryKey: brandKeys.all });
     },
     onError: (err: any) => {
-      const message = err?.response?.data?.message || err?.message || "Failed to delete brand";
-      toast.error(message);
+      const detailedMessage = err?.response?.data?.errors?.[0]?.message;
+      const fallbackMessage = err?.response?.data?.message || err?.message || "Failed to delete brand";
+      toast.error(detailedMessage || fallbackMessage, { duration: 6000 });
     }
   });
 };
