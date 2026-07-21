@@ -9,6 +9,7 @@ export const PosRoutes = {
   deleteBill: (orderId: string) => `${posBase}/bill/${orderId}/delete`,
   addPayment: (orderId: string) => `${posBase}/bill/${orderId}/payments/add`,
   deletePayment: (orderId: string, paymentId: string) => `${posBase}/bill/${orderId}/payments/${paymentId}/delete`,
+  report: `${posBase}/report`,
 };
 
 export default PosRoutes;

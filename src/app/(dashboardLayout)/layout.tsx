@@ -1,6 +1,7 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import Sidebar from '@/components/Dashboard/Shared/Sidebar';
 import Header from '@/components/Dashboard/Shared/Header';
 import { routes } from '@/components/Dashboard/Routes/Routes';
@@ -10,7 +11,17 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)');
+  const pathname = usePathname();
   const toggleMobileSidebar = () => setMobileOpen(!mobileOpen);
+
+  // Auto-collapse sidebar on POS order create page, expand on others
+  useEffect(() => {
+    if (pathname === '/dashboard/pos-order/create') {
+      setSidebarCollapsed(true);
+    } else {
+      setSidebarCollapsed(false);
+    }
+  }, [pathname]);
 
   return (
     <div className='flex h-screen bg-white'>

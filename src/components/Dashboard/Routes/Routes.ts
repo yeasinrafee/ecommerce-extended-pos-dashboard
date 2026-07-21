@@ -82,6 +82,10 @@ export const routes: RouteItem[] = [
         label: "Manage POS Order",
         href: "/dashboard/pos-order/manage",
       },
+      {
+        label: "POS Report",
+        href: "/dashboard/pos-order/report",
+      },
     ],
   },
   // --- Purchases & Suppliers ---
