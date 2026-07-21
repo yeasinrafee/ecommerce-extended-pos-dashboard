@@ -1,83 +1,87 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import { useForm, type Resolver } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useRouter } from "next/navigation";
-import { toast } from "react-hot-toast";
+import * as React from 'react';
+import { useForm, type Resolver } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useRouter } from 'next/navigation';
+import { toast } from 'react-hot-toast';
 
-import CustomButton from "../Common/CustomButton";
-import CustomTab, { CustomTabItem } from "../Common/CustomTab";
-import MainInformation from "./ProductForm/MainInformation";
-import GeneralInformation from "./ProductForm/GeneralInformation";
+import CustomButton from '../Common/CustomButton';
+import CustomTab, { CustomTabItem } from '../Common/CustomTab';
+import MainInformation from './ProductForm/MainInformation';
+import GeneralInformation from './ProductForm/GeneralInformation';
 import Attributes, {
   AttributesData,
   AttributeRecord,
   AdditionalInfo as AdditionalInfoType,
-} from "./ProductForm/Attributes";
-import AdditionalInfo from "./ProductForm/AdditionalInfo";
-import Seo, { SeoData } from "./ProductForm/Seo";
-import RightSection, { RightSectionData } from "./ProductForm/RightSection";
-import { useAllCategories } from "@/hooks/product-category.api";
-import { useAllTags } from "@/hooks/product-tag.api";
-import { useAllBrands, Brand } from "@/hooks/brand.api";
-import { useCreateProduct, useUpdateProduct, useGetProduct } from "@/hooks/product.api";
+} from './ProductForm/Attributes';
+import AdditionalInfo from './ProductForm/AdditionalInfo';
+import Seo, { SeoData } from './ProductForm/Seo';
+import RightSection, { RightSectionData } from './ProductForm/RightSection';
+import { useAllCategories } from '@/hooks/product-category.api';
+import { useAllTags } from '@/hooks/product-tag.api';
+import { useAllBrands, Brand } from '@/hooks/brand.api';
+import {
+  useCreateProduct,
+  useUpdateProduct,
+  useGetProduct,
+} from '@/hooks/product.api';
 
 const discountOptions = [
-  { label: "None", value: "NONE" },
-  { label: "Flat Discount", value: "FLAT_DISCOUNT" },
-  { label: "Percentage Discount", value: "PERCENTAGE_DISCOUNT" },
+  { label: 'None', value: 'NONE' },
+  { label: 'Flat Discount', value: 'FLAT_DISCOUNT' },
+  { label: 'Percentage Discount', value: 'PERCENTAGE_DISCOUNT' },
 ];
 
 const stockStatusOptions = [
-  { label: "In Stock", value: "IN_STOCK" },
-  { label: "Low Stock", value: "LOW_STOCK" },
-  { label: "Out of Stock", value: "OUT_OF_STOCK" },
+  { label: 'In Stock', value: 'IN_STOCK' },
+  { label: 'Low Stock', value: 'LOW_STOCK' },
+  { label: 'Out of Stock', value: 'OUT_OF_STOCK' },
 ];
 
 const productStatusOptions = [
-  { label: "Active", value: "ACTIVE" },
-  { label: "Inactive", value: "INACTIVE" },
+  { label: 'Active', value: 'ACTIVE' },
+  { label: 'Inactive', value: 'INACTIVE' },
 ];
 
 const toNumber = (value: any) => {
-  if (value === "" || value === null || value === undefined) {
+  if (value === '' || value === null || value === undefined) {
     return value;
   }
   return Number(value);
 };
 
 const nullableNumberSchema = z.preprocess((value) => {
-  if (value === "" || value === null || value === undefined) {
+  if (value === '' || value === null || value === undefined) {
     return null;
   }
   return Number(value);
 }, z.number().nullable());
 
 const nullablePositiveNumberSchema = z.preprocess((value) => {
-  if (value === "" || value === null || value === undefined) {
+  if (value === '' || value === null || value === undefined) {
     return null;
   }
   return Number(value);
 }, z.number().positive().nullable());
 
 const nullablePositivePriceSchema = z.preprocess((value) => {
-  if (value === "" || value === null || value === undefined) {
+  if (value === '' || value === null || value === undefined) {
     return null;
   }
   return Number(value);
 }, z.number().positive().nullable());
 
 const nullableStringSchema = z.preprocess((value) => {
-  if (value === "" || value === null || value === undefined) {
+  if (value === '' || value === null || value === undefined) {
     return null;
   }
   return String(value).trim();
 }, z.string().nullable());
 
 const nullableDateStringSchema = z.preprocess((value) => {
-  if (value === "" || value === null || value === undefined) {
+  if (value === '' || value === null || value === undefined) {
     return null;
   }
   return String(value);
@@ -85,17 +89,17 @@ const nullableDateStringSchema = z.preprocess((value) => {
 
 const createProductSchema = z
   .object({
-    name: z.string().trim().min(1, "Product name is required"),
+    name: z.string().trim().min(1, 'Product name is required'),
     shortDescription: nullableStringSchema,
-    description: z.string().trim().min(1, "Description is required"),
+    description: z.string().trim().min(1, 'Description is required'),
     basePrice: z.preprocess(toNumber, z.number().positive()),
     posPrice: nullablePositivePriceSchema,
     barcodeId: z.preprocess((value) => {
-      if (value === "" || value === null || value === undefined) return null;
+      if (value === '' || value === null || value === undefined) return null;
       const str = String(value).trim();
-      return str === "" ? null : str;
-    }, z.string().regex(/^\d+$/, "Barcode must contain digits only").nullable()),
-    discountType: z.enum(["NONE", "FLAT_DISCOUNT", "PERCENTAGE_DISCOUNT"]),
+      return str === '' ? null : str;
+    }, z.string().regex(/^\d+$/, 'Barcode must contain digits only').nullable()),
+    discountType: z.enum(['NONE', 'FLAT_DISCOUNT', 'PERCENTAGE_DISCOUNT']),
     discountValue: nullableNumberSchema,
     discountStartDate: nullableDateStringSchema,
     discountEndDate: nullableDateStringSchema,
@@ -105,16 +109,16 @@ const createProductSchema = z
     width: nullablePositiveNumberSchema,
     height: nullablePositiveNumberSchema,
     brand: z.preprocess((value) => {
-      if (value === "" || value === null || value === undefined) {
+      if (value === '' || value === null || value === undefined) {
         return undefined;
       }
       return String(value).trim();
     }, z.string().optional()),
-    status: z.enum(["ACTIVE", "INACTIVE"]),
+    status: z.enum(['ACTIVE', 'INACTIVE']),
     // stockStatus is NOT sent — server computes it automatically from stock quantity
     categories: z
       .array(z.string().trim().min(1))
-      .min(1, "At least one category is required"),
+      .min(1, 'At least one category is required'),
     tags: z.array(z.string().trim().min(1)),
     galleryImagesMeta: z.array(
       z.object({
@@ -151,15 +155,15 @@ const createProductSchema = z
       .nullable(),
   })
   .superRefine((data, ctx) => {
-    const needsDiscountValue = data.discountType !== "NONE";
+    const needsDiscountValue = data.discountType !== 'NONE';
     if (
       needsDiscountValue &&
       (data.discountValue == null || Number.isNaN(data.discountValue))
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["discountValue"],
-        message: "Discount value is required when a discount type is selected",
+        path: ['discountValue'],
+        message: 'Discount value is required when a discount type is selected',
       });
     }
 
@@ -169,8 +173,8 @@ const createProductSchema = z
       if (end < start) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          path: ["discountEndDate"],
-          message: "Discount end date must be after the start date",
+          path: ['discountEndDate'],
+          message: 'Discount end date must be after the start date',
         });
       }
     }
@@ -185,20 +189,20 @@ const createProductSchema = z
     if (seoProvided && !data.seo?.metaTitle) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["seo", "metaTitle"],
-        message: "SEO meta title is required when SEO data is provided",
+        path: ['seo', 'metaTitle'],
+        message: 'SEO meta title is required when SEO data is provided',
       });
     }
   });
 
 const defaultFormValues: z.infer<typeof createProductSchema> = {
-  name: "",
+  name: '',
   shortDescription: null,
-  description: "",
+  description: '',
   basePrice: 0,
   posPrice: null,
   barcodeId: null,
-  discountType: "NONE",
+  discountType: 'NONE',
   discountValue: null,
   discountStartDate: null,
   discountEndDate: null,
@@ -207,8 +211,8 @@ const defaultFormValues: z.infer<typeof createProductSchema> = {
   length: null,
   width: null,
   height: null,
-  brand: "",
-  status: "ACTIVE",
+  brand: '',
+  status: 'ACTIVE',
   // stockStatus is server-computed — not part of form
   categories: [],
   tags: [],
@@ -233,8 +237,8 @@ const initialAttributesState: AttributesData = {
 };
 
 const initialSeoState: SeoData = {
-  metaTitle: "",
-  metaDescription: "",
+  metaTitle: '',
+  metaDescription: '',
   seoKeywords: [],
 };
 
@@ -245,7 +249,11 @@ const isSameStringArray = (a: string[], b: string[]) => {
   return a.every((value, index) => value === b[index]);
 };
 
-export default function CreateProductForm({ productId }: { productId?: string }) {
+export default function CreateProductForm({
+  productId,
+}: {
+  productId?: string;
+}) {
   const isEditMode = !!productId;
   const router = useRouter();
   const createProductMutation = useCreateProduct();
@@ -254,7 +262,9 @@ export default function CreateProductForm({ productId }: { productId?: string })
   const { mutate: updateProduct } = updateProductMutation;
 
   // Load existing product in edit mode
-  const { data: productData, isLoading: productLoading } = useGetProduct(productId ?? "");
+  const { data: productData, isLoading: productLoading } = useGetProduct(
+    productId ?? '',
+  );
 
   const {
     control,
@@ -267,20 +277,20 @@ export default function CreateProductForm({ productId }: { productId?: string })
     resolver: zodResolver(createProductSchema) as Resolver<
       z.infer<typeof createProductSchema>
     >,
-    mode: "onChange",
+    mode: 'onChange',
     defaultValues: defaultFormValues,
   });
 
-  const [productName, setProductName] = React.useState("");
-  const [shortDescription, setShortDescription] = React.useState("");
-  const [description, setDescription] = React.useState("");
+  const [productName, setProductName] = React.useState('');
+  const [shortDescription, setShortDescription] = React.useState('');
+  const [description, setDescription] = React.useState('');
   const [basePrice, setBasePrice] = React.useState<number | null>(null);
   const [posPrice, setPosPrice] = React.useState<number | null>(null);
-  const [barcode, setBarcode] = React.useState("");
+  const [barcode, setBarcode] = React.useState('');
   const [discountValue, setDiscountValue] = React.useState<number | null>(null);
   const [discountStart, setDiscountStart] = React.useState<Date | null>(null);
   const [discountEnd, setDiscountEnd] = React.useState<Date | null>(null);
-  const [sku, setSku] = React.useState("");
+  const [sku, setSku] = React.useState('');
   const [weight, setWeight] = React.useState<number | null>(null);
   const [lengthCm, setLengthCm] = React.useState<number | null>(null);
   const [widthCm, setWidthCm] = React.useState<number | null>(null);
@@ -298,8 +308,8 @@ export default function CreateProductForm({ productId }: { productId?: string })
   const [seoData, setSeoData] = React.useState<SeoData>(initialSeoState);
   const [isEditorProcessing, setIsEditorProcessing] = React.useState(false);
 
-  const selectedDiscountType = watch("discountType");
-  const productStatusValue = watch("status");
+  const selectedDiscountType = watch('discountType');
+  const productStatusValue = watch('status');
 
   const { data: productCategories } = useAllCategories();
   const { data: productTags } = useAllTags();
@@ -330,16 +340,18 @@ export default function CreateProductForm({ productId }: { productId?: string })
     const p = productData as any;
 
     // Local state
-    setProductName(p.name ?? "");
-    setShortDescription(p.shortDescription ?? "");
-    setDescription(p.description ?? "");
+    setProductName(p.name ?? '');
+    setShortDescription(p.shortDescription ?? '');
+    setDescription(p.description ?? '');
     setBasePrice(p.Baseprice ?? null);
     setPosPrice(p.posPrice ?? null);
-    setBarcode(p.barcodeId ?? "");
+    setBarcode(p.barcodeId ?? '');
     setDiscountValue(p.discountValue ?? null);
-    setDiscountStart(p.discountStartDate ? new Date(p.discountStartDate) : null);
+    setDiscountStart(
+      p.discountStartDate ? new Date(p.discountStartDate) : null,
+    );
     setDiscountEnd(p.discountEndDate ? new Date(p.discountEndDate) : null);
-    setSku(p.sku ?? "");
+    setSku(p.sku ?? '');
     setWeight(p.weight ?? null);
     setLengthCm(p.length ?? null);
     setWidthCm(p.width ?? null);
@@ -348,18 +360,22 @@ export default function CreateProductForm({ productId }: { productId?: string })
     // SEO
     const seo = p.seos?.[0];
     if (seo) {
-      setSeoData({ metaTitle: seo.title ?? "", metaDescription: seo.description ?? "", seoKeywords: seo.keyword ?? [] });
+      setSeoData({
+        metaTitle: seo.title ?? '',
+        metaDescription: seo.description ?? '',
+        seoKeywords: seo.keyword ?? [],
+      });
     }
 
     // form values
     reset({
-      name: p.name ?? "",
+      name: p.name ?? '',
       shortDescription: p.shortDescription ?? null,
-      description: p.description ?? "",
+      description: p.description ?? '',
       basePrice: p.Baseprice ?? 0,
       posPrice: p.posPrice ?? null,
       barcodeId: p.barcodeId ?? null,
-      discountType: p.discountType ?? "NONE",
+      discountType: p.discountType ?? 'NONE',
       discountValue: p.discountValue ?? null,
       discountStartDate: p.discountStartDate ?? null,
       discountEndDate: p.discountEndDate ?? null,
@@ -368,14 +384,23 @@ export default function CreateProductForm({ productId }: { productId?: string })
       length: p.length ?? null,
       width: p.width ?? null,
       height: p.height ?? null,
-      brand: p.brandId ?? "",
-      status: p.status ?? "ACTIVE",
+      brand: p.brandId ?? '',
+      status: p.status ?? 'ACTIVE',
       categories: (p.categories ?? []).map((c: any) => c.categoryId),
       tags: (p.tags ?? []).map((t: any) => t.tagId),
       galleryImagesMeta: [],
       attributes: [],
-      additionalInfo: (p.additionalInformations ?? []).map((i: any) => ({ name: i.name, value: i.value })),
-      seo: seo ? { metaTitle: seo.title ?? "", metaDescription: seo.description ?? "", seoKeywords: seo.keyword ?? [] } : null,
+      additionalInfo: (p.additionalInformations ?? []).map((i: any) => ({
+        name: i.name,
+        value: i.value,
+      })),
+      seo: seo
+        ? {
+            metaTitle: seo.title ?? '',
+            metaDescription: seo.description ?? '',
+            seoKeywords: seo.keyword ?? [],
+          }
+        : null,
     });
   }, [isEditMode, productData, reset]);
 
@@ -383,7 +408,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
   const allGalleryForAttributes = React.useMemo(() => {
     const existing = rightData.existingGalleryUrls.map((url) => ({
       id: `__existing__${url}`,
-      name: url.split("/").pop()?.split(".")[0] ?? "gallery",
+      name: url.split('/').pop()?.split('.')[0] ?? 'gallery',
       url,
     }));
     const fresh = rightData.galleryImages.map((img) => ({
@@ -402,12 +427,13 @@ export default function CreateProductForm({ productId }: { productId?: string })
 
     const grouped = new Map<string, AttributeRecord>();
     for (const v of p.productVariations) {
-      const attrName = v.attribute?.name ?? "";
+      const attrName = v.attribute?.name ?? '';
       if (!attrName) continue;
-      if (!grouped.has(attrName)) grouped.set(attrName, { name: attrName, pairs: [] });
+      if (!grouped.has(attrName))
+        grouped.set(attrName, { name: attrName, pairs: [] });
       grouped.get(attrName)!.pairs.push({
-        value: v.attributeValue ?? "",
-        price: v.basePrice != null ? String(v.basePrice) : "",
+        value: v.attributeValue ?? '',
+        price: v.basePrice != null ? String(v.basePrice) : '',
         imageId: v.galleryImage ? `__existing__${v.galleryImage}` : null,
         existingImageUrl: v.galleryImage ?? null,
       });
@@ -416,10 +442,15 @@ export default function CreateProductForm({ productId }: { productId?: string })
   }, [productData]);
 
   // ── Initial additional info ──────────────────────────────────────────────────
-  const initialAdditionalInfo = React.useMemo<AdditionalInfoType[] | undefined>(() => {
+  const initialAdditionalInfo = React.useMemo<
+    AdditionalInfoType[] | undefined
+  >(() => {
     if (!productData) return undefined;
     const p = productData as any;
-    return p.additionalInformations?.map((i: any) => ({ name: i.name, value: i.value }));
+    return p.additionalInformations?.map((i: any) => ({
+      name: i.name,
+      value: i.value,
+    }));
   }, [productData]);
 
   // ── Initial SEO data ─────────────────────────────────────────────────────────
@@ -427,17 +458,21 @@ export default function CreateProductForm({ productId }: { productId?: string })
     if (!productData) return undefined;
     const seo = (productData as any).seos?.[0];
     if (!seo) return undefined;
-    return { metaTitle: seo.title ?? "", metaDescription: seo.description ?? "", seoKeywords: seo.keyword ?? [] };
+    return {
+      metaTitle: seo.title ?? '',
+      metaDescription: seo.description ?? '',
+      seoKeywords: seo.keyword ?? [],
+    };
   }, [productData]);
 
   const updateMainInformation = (value: string) => {
     setProductName(value);
-    setValue("name", value, { shouldValidate: true, shouldDirty: true });
+    setValue('name', value, { shouldValidate: true, shouldDirty: true });
   };
 
   const updateShortDescription = (value: string) => {
     setShortDescription(value);
-    setValue("shortDescription", value.trim() === "" ? null : value, {
+    setValue('shortDescription', value.trim() === '' ? null : value, {
       shouldValidate: true,
       shouldDirty: true,
     });
@@ -445,12 +480,12 @@ export default function CreateProductForm({ productId }: { productId?: string })
 
   const updateDescription = (value: string) => {
     setDescription(value);
-    setValue("description", value, { shouldValidate: true, shouldDirty: true });
+    setValue('description', value, { shouldValidate: true, shouldDirty: true });
   };
 
   const updateBasePrice = (value: number | null) => {
     setBasePrice(value);
-    setValue("basePrice", value ?? 0, {
+    setValue('basePrice', value ?? 0, {
       shouldValidate: true,
       shouldDirty: true,
     });
@@ -458,7 +493,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
 
   const updatePosPrice = (value: number | null) => {
     setPosPrice(value);
-    setValue("posPrice", value, {
+    setValue('posPrice', value, {
       shouldValidate: true,
       shouldDirty: true,
     });
@@ -466,9 +501,9 @@ export default function CreateProductForm({ productId }: { productId?: string })
 
   const updateBarcode = (value: string) => {
     // Strip non-digit characters at the handler level so scanner input is always clean
-    const digitsOnly = value.replace(/\D/g, "");
+    const digitsOnly = value.replace(/\D/g, '');
     setBarcode(digitsOnly);
-    setValue("barcodeId", digitsOnly === "" ? null : digitsOnly, {
+    setValue('barcodeId', digitsOnly === '' ? null : digitsOnly, {
       shouldValidate: true,
       shouldDirty: true,
     });
@@ -476,7 +511,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
 
   const updateDiscountValue = (value: number | null) => {
     setDiscountValue(value);
-    setValue("discountValue", value, {
+    setValue('discountValue', value, {
       shouldValidate: true,
       shouldDirty: true,
     });
@@ -484,7 +519,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
 
   const updateDiscountStart = (value: Date | null) => {
     setDiscountStart(value);
-    setValue("discountStartDate", value ? value.toISOString() : null, {
+    setValue('discountStartDate', value ? value.toISOString() : null, {
       shouldValidate: true,
       shouldDirty: true,
     });
@@ -492,7 +527,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
 
   const updateDiscountEnd = (value: Date | null) => {
     setDiscountEnd(value);
-    setValue("discountEndDate", value ? value.toISOString() : null, {
+    setValue('discountEndDate', value ? value.toISOString() : null, {
       shouldValidate: true,
       shouldDirty: true,
     });
@@ -500,7 +535,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
 
   const updateSku = (value: string) => {
     setSku(value);
-    setValue("sku", value.trim() === "" ? null : value, {
+    setValue('sku', value.trim() === '' ? null : value, {
       shouldValidate: true,
       shouldDirty: true,
     });
@@ -508,7 +543,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
 
   const updateWeight = (value: number | null) => {
     setWeight(value);
-    setValue("weight", value, {
+    setValue('weight', value, {
       shouldValidate: true,
       shouldDirty: true,
     });
@@ -516,7 +551,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
 
   const updateLength = (value: number | null) => {
     setLengthCm(value);
-    setValue("length", value, {
+    setValue('length', value, {
       shouldValidate: true,
       shouldDirty: true,
     });
@@ -524,7 +559,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
 
   const updateWidth = (value: number | null) => {
     setWidthCm(value);
-    setValue("width", value, {
+    setValue('width', value, {
       shouldValidate: true,
       shouldDirty: true,
     });
@@ -532,7 +567,7 @@ export default function CreateProductForm({ productId }: { productId?: string })
 
   const updateHeight = (value: number | null) => {
     setHeightCm(value);
-    setValue("height", value, {
+    setValue('height', value, {
       shouldValidate: true,
       shouldDirty: true,
     });
@@ -546,15 +581,15 @@ export default function CreateProductForm({ productId }: { productId?: string })
         id: image.id,
         name: image.name,
       }));
-      setValue("categories", data.categories, {
+      setValue('categories', data.categories, {
         shouldValidate: true,
         shouldDirty: true,
       });
-      setValue("tags", data.tags, {
+      setValue('tags', data.tags, {
         shouldValidate: true,
         shouldDirty: true,
       });
-      setValue("galleryImagesMeta", galleryMeta, {
+      setValue('galleryImagesMeta', galleryMeta, {
         shouldValidate: true,
         shouldDirty: true,
       });
@@ -563,14 +598,14 @@ export default function CreateProductForm({ productId }: { productId?: string })
   );
 
   React.useEffect(() => {
-    setValue("attributes", attributesData.attributes, {
+    setValue('attributes', attributesData.attributes, {
       shouldValidate: true,
       shouldDirty: true,
     });
   }, [attributesData.attributes, setValue]);
 
   React.useEffect(() => {
-    setValue("additionalInfo", attributesData.additionalInfo, {
+    setValue('additionalInfo', attributesData.additionalInfo, {
       shouldValidate: true,
       shouldDirty: true,
     });
@@ -582,18 +617,27 @@ export default function CreateProductForm({ productId }: { productId?: string })
       seoData.metaDescription ||
       seoData.seoKeywords.length > 0,
     );
-    setValue("seo", hasSeoData ? seoData : null, {
+    setValue('seo', hasSeoData ? seoData : null, {
       shouldValidate: true,
       shouldDirty: true,
     });
   }, [seoData, setValue]);
 
-  const [attributesPending, setAttributesPending] = React.useState<{ name?: string; value?: string } | null>(null);
+  const [attributesPending, setAttributesPending] = React.useState<{
+    name?: string;
+    value?: string;
+  } | null>(null);
 
-  const handleAttributesChange = React.useCallback((data: AttributesData, pending?: { name?: string; value?: string } | null) => {
-    setAttributesData((prev) => ({ ...prev, attributes: data.attributes }));
-    setAttributesPending(pending ?? null);
-  }, []);
+  const handleAttributesChange = React.useCallback(
+    (
+      data: AttributesData,
+      pending?: { name?: string; value?: string } | null,
+    ) => {
+      setAttributesData((prev) => ({ ...prev, attributes: data.attributes }));
+      setAttributesPending(pending ?? null);
+    },
+    [],
+  );
 
   const handleAdditionalInfoChange = React.useCallback(
     (info: AdditionalInfoType[]) => {
@@ -613,7 +657,10 @@ export default function CreateProductForm({ productId }: { productId?: string })
   );
 
   const initialGalleryUrls = React.useMemo(
-    () => normalizeStringArray((((productData as any)?.galleryImages ?? []) as string[])),
+    () =>
+      normalizeStringArray(
+        ((productData as any)?.galleryImages ?? []) as string[],
+      ),
     [productData],
   );
 
@@ -624,9 +671,9 @@ export default function CreateProductForm({ productId }: { productId?: string })
   const currentGalleryUrls = React.useMemo(
     () =>
       normalizeStringArray(
-        ((rightSectionReady
+        (rightSectionReady
           ? rightData.existingGalleryUrls
-          : ((productData as any)?.galleryImages ?? [])) as string[]),
+          : ((productData as any)?.galleryImages ?? [])) as string[],
       ),
     [rightSectionReady, rightData.existingGalleryUrls, productData],
   );
@@ -660,18 +707,18 @@ export default function CreateProductForm({ productId }: { productId?: string })
     attributesData.attributes.map((attribute) => ({
       name: attribute.name.trim(),
       pairs: attribute.pairs.map((pair) => {
-        const trimmedPrice = String(pair.price ?? "").trim();
+        const trimmedPrice = String(pair.price ?? '').trim();
         const rawImageId = pair.imageId ?? null;
         let imageId: string | null = null;
         let existingImageUrl: string | null = null;
-        if (rawImageId?.startsWith("__existing__")) {
-          existingImageUrl = rawImageId.slice("__existing__".length);
+        if (rawImageId?.startsWith('__existing__')) {
+          existingImageUrl = rawImageId.slice('__existing__'.length);
         } else {
           imageId = rawImageId;
         }
         return {
           value: pair.value.trim(),
-          price: trimmedPrice === "" ? null : Number(trimmedPrice),
+          price: trimmedPrice === '' ? null : Number(trimmedPrice),
           imageId,
           existingImageUrl,
         };
@@ -686,97 +733,158 @@ export default function CreateProductForm({ productId }: { productId?: string })
 
   function buildCreateFormData(values: z.infer<typeof createProductSchema>) {
     const payload = new FormData();
-    payload.append("name", values.name);
-    payload.append("shortDescription", values.shortDescription ?? "");
-    payload.append("description", values.description);
-    payload.append("basePrice", String(values.basePrice));
-    if (values.posPrice != null) payload.append("posPrice", String(values.posPrice));
-    payload.append("discountType", values.discountType);
-    payload.append("discountValue", values.discountValue == null ? "" : String(values.discountValue));
-    payload.append("discountStartDate", values.discountStartDate ?? "");
-    payload.append("discountEndDate", values.discountEndDate ?? "");
-    payload.append("sku", values.sku ?? "");
-    payload.append("weight", values.weight == null ? "" : String(values.weight));
-    payload.append("length", values.length == null ? "" : String(values.length));
-    payload.append("width", values.width == null ? "" : String(values.width));
-    payload.append("height", values.height == null ? "" : String(values.height));
-    if (values.brand) payload.append("brandId", values.brand);
-    payload.append("status", values.status);
-    payload.append("categories", JSON.stringify(values.categories));
-    payload.append("tags", JSON.stringify(values.tags));
-    if (barcode.trim()) payload.append("barcodeId", barcode.trim());
+    payload.append('name', values.name);
+    payload.append('shortDescription', values.shortDescription ?? '');
+    payload.append('description', values.description);
+    payload.append('basePrice', String(values.basePrice));
+    if (values.posPrice != null)
+      payload.append('posPrice', String(values.posPrice));
+    payload.append('discountType', values.discountType);
+    payload.append(
+      'discountValue',
+      values.discountValue == null ? '' : String(values.discountValue),
+    );
+    payload.append('discountStartDate', values.discountStartDate ?? '');
+    payload.append('discountEndDate', values.discountEndDate ?? '');
+    payload.append('sku', values.sku ?? '');
+    payload.append(
+      'weight',
+      values.weight == null ? '' : String(values.weight),
+    );
+    payload.append(
+      'length',
+      values.length == null ? '' : String(values.length),
+    );
+    payload.append('width', values.width == null ? '' : String(values.width));
+    payload.append(
+      'height',
+      values.height == null ? '' : String(values.height),
+    );
+    if (values.brand) payload.append('brandId', values.brand);
+    payload.append('status', values.status);
+    payload.append('categories', JSON.stringify(values.categories));
+    payload.append('tags', JSON.stringify(values.tags));
+    if (barcode.trim()) payload.append('barcodeId', barcode.trim());
 
-    const galleryMeta = rightData.galleryImages.map((image) => ({ id: image.id, name: image.name }));
-    payload.append("galleryImagesMeta", JSON.stringify(galleryMeta));
-    payload.append("attributes", JSON.stringify(normalizeAttributesForSubmit()));
-    payload.append("additionalInfo", JSON.stringify(normalizeAdditionalInfoForSubmit()));
+    const galleryMeta = rightData.galleryImages.map((image) => ({
+      id: image.id,
+      name: image.name,
+    }));
+    payload.append('galleryImagesMeta', JSON.stringify(galleryMeta));
+    payload.append(
+      'attributes',
+      JSON.stringify(normalizeAttributesForSubmit()),
+    );
+    payload.append(
+      'additionalInfo',
+      JSON.stringify(normalizeAdditionalInfoForSubmit()),
+    );
 
-    const hasSeoData = Boolean(seoData.metaTitle || seoData.metaDescription || seoData.seoKeywords.length > 0);
-    payload.append("seo", JSON.stringify(hasSeoData ? seoData : null));
+    const hasSeoData = Boolean(
+      seoData.metaTitle ||
+      seoData.metaDescription ||
+      seoData.seoKeywords.length > 0,
+    );
+    payload.append('seo', JSON.stringify(hasSeoData ? seoData : null));
 
-    if (rightData.mainImage) payload.append("mainImage", rightData.mainImage.file);
-    rightData.galleryImages.forEach((image) => payload.append("galleryImages", image.file));
+    if (rightData.mainImage)
+      payload.append('mainImage', rightData.mainImage.file);
+    rightData.galleryImages.forEach((image) =>
+      payload.append('galleryImages', image.file),
+    );
 
     return payload;
   }
 
   function buildUpdateFormData(values: z.infer<typeof createProductSchema>) {
     const payload = new FormData();
-    payload.append("name", values.name);
-    payload.append("shortDescription", values.shortDescription ?? "");
-    payload.append("description", values.description);
-    payload.append("basePrice", String(values.basePrice));
-    if (values.posPrice != null) payload.append("posPrice", String(values.posPrice));
-    payload.append("discountType", values.discountType);
-    payload.append("discountValue", values.discountValue == null ? "" : String(values.discountValue));
-    payload.append("discountStartDate", values.discountStartDate ?? "");
-    payload.append("discountEndDate", values.discountEndDate ?? "");
-    payload.append("sku", values.sku ?? "");
-    payload.append("weight", values.weight == null ? "" : String(values.weight));
-    payload.append("length", values.length == null ? "" : String(values.length));
-    payload.append("width", values.width == null ? "" : String(values.width));
-    payload.append("height", values.height == null ? "" : String(values.height));
-    if (values.brand) payload.append("brandId", values.brand);
-    payload.append("status", values.status);
-    payload.append("categories", JSON.stringify(values.categories));
-    payload.append("tags", JSON.stringify(values.tags));
-    if (barcode.trim()) payload.append("barcodeId", barcode.trim());
+    payload.append('name', values.name);
+    payload.append('shortDescription', values.shortDescription ?? '');
+    payload.append('description', values.description);
+    payload.append('basePrice', String(values.basePrice));
+    if (values.posPrice != null)
+      payload.append('posPrice', String(values.posPrice));
+    payload.append('discountType', values.discountType);
+    payload.append(
+      'discountValue',
+      values.discountValue == null ? '' : String(values.discountValue),
+    );
+    payload.append('discountStartDate', values.discountStartDate ?? '');
+    payload.append('discountEndDate', values.discountEndDate ?? '');
+    payload.append('sku', values.sku ?? '');
+    payload.append(
+      'weight',
+      values.weight == null ? '' : String(values.weight),
+    );
+    payload.append(
+      'length',
+      values.length == null ? '' : String(values.length),
+    );
+    payload.append('width', values.width == null ? '' : String(values.width));
+    payload.append(
+      'height',
+      values.height == null ? '' : String(values.height),
+    );
+    if (values.brand) payload.append('brandId', values.brand);
+    payload.append('status', values.status);
+    payload.append('categories', JSON.stringify(values.categories));
+    payload.append('tags', JSON.stringify(values.tags));
+    if (barcode.trim()) payload.append('barcodeId', barcode.trim());
 
     // Main image handling
-    const keepMainImage = !rightData.mainImage && !!rightData.mainImageExistingUrl;
-    payload.append("keepMainImage", keepMainImage ? "true" : "false");
+    const keepMainImage =
+      !rightData.mainImage && !!rightData.mainImageExistingUrl;
+    payload.append('keepMainImage', keepMainImage ? 'true' : 'false');
     if (!keepMainImage && rightData.mainImage) {
-      payload.append("mainImage", rightData.mainImage.file);
+      payload.append('mainImage', rightData.mainImage.file);
     }
 
     // Gallery handling: kept existing + new uploads
-    payload.append("existingGalleryUrls", JSON.stringify(rightData.existingGalleryUrls));
-    const newGalleryMeta = rightData.galleryImages.map((image) => ({ id: image.id, name: image.name }));
-    payload.append("galleryImagesMeta", JSON.stringify(newGalleryMeta));
-    rightData.galleryImages.forEach((image) => payload.append("galleryImages", image.file));
+    payload.append(
+      'existingGalleryUrls',
+      JSON.stringify(rightData.existingGalleryUrls),
+    );
+    const newGalleryMeta = rightData.galleryImages.map((image) => ({
+      id: image.id,
+      name: image.name,
+    }));
+    payload.append('galleryImagesMeta', JSON.stringify(newGalleryMeta));
+    rightData.galleryImages.forEach((image) =>
+      payload.append('galleryImages', image.file),
+    );
 
-    payload.append("attributes", JSON.stringify(normalizeAttributesForSubmit()));
-    payload.append("additionalInfo", JSON.stringify(normalizeAdditionalInfoForSubmit()));
+    payload.append(
+      'attributes',
+      JSON.stringify(normalizeAttributesForSubmit()),
+    );
+    payload.append(
+      'additionalInfo',
+      JSON.stringify(normalizeAdditionalInfoForSubmit()),
+    );
 
-    const hasSeoData = Boolean(seoData.metaTitle || seoData.metaDescription || seoData.seoKeywords.length > 0);
-    payload.append("seo", JSON.stringify(hasSeoData ? seoData : null));
+    const hasSeoData = Boolean(
+      seoData.metaTitle ||
+      seoData.metaDescription ||
+      seoData.seoKeywords.length > 0,
+    );
+    payload.append('seo', JSON.stringify(hasSeoData ? seoData : null));
 
     return payload;
   }
 
   const handleSuccess = () => {
-    router.push("/dashboard/product/manage");
+    router.push('/dashboard/product/manage');
     reset(defaultFormValues);
-    setProductName("");
-    setShortDescription("");
-    setDescription("");
+    setProductName('');
+    setShortDescription('');
+    setDescription('');
     setBasePrice(null);
     setPosPrice(null);
-    setBarcode("");
+    setBarcode('');
     setDiscountValue(null);
     setDiscountStart(null);
     setDiscountEnd(null);
-    setSku("");
+    setSku('');
     setWeight(null);
     setLengthCm(null);
     setWidthCm(null);
@@ -788,14 +896,23 @@ export default function CreateProductForm({ productId }: { productId?: string })
     setAdditionalResetKey((prev) => prev + 1);
     setSeoData(initialSeoState);
     setSeoResetKey((prev) => prev + 1);
-    setValue("categories", [], { shouldValidate: true, shouldDirty: true });
-    setValue("tags", [], { shouldValidate: true, shouldDirty: true });
-    setValue("galleryImagesMeta", [], { shouldValidate: true, shouldDirty: true });
+    setValue('categories', [], { shouldValidate: true, shouldDirty: true });
+    setValue('tags', [], { shouldValidate: true, shouldDirty: true });
+    setValue('galleryImagesMeta', [], {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
   };
 
   const onSubmit = (values: z.infer<typeof createProductSchema>) => {
-    if (attributesPending && attributesPending.name && (!attributesPending.value || attributesPending.value.trim() === "")) {
-      toast.error(`Please select a value for attribute "${attributesPending.name}"`);
+    if (
+      attributesPending &&
+      attributesPending.name &&
+      (!attributesPending.value || attributesPending.value.trim() === '')
+    ) {
+      toast.error(
+        `Please select a value for attribute "${attributesPending.name}"`,
+      );
       return;
     }
 
@@ -810,8 +927,8 @@ export default function CreateProductForm({ productId }: { productId?: string })
 
   const tabItems: CustomTabItem[] = [
     {
-      id: "general",
-      label: "General",
+      id: 'general',
+      label: 'General',
       content: (
         <GeneralInformation
           basePrice={basePrice}
@@ -845,8 +962,8 @@ export default function CreateProductForm({ productId }: { productId?: string })
       ),
     },
     {
-      id: "attributes",
-      label: "Attributes",
+      id: 'attributes',
+      label: 'Attributes',
       content: (
         <Attributes
           key={attributesResetKey}
@@ -861,14 +978,15 @@ export default function CreateProductForm({ productId }: { productId?: string })
       ),
     },
     {
-      id: "additional",
-      label: "Additional Info",
+      id: 'additional',
+      label: 'Additional Info',
       content: (
         <AdditionalInfo
           key={additionalResetKey}
           onChange={handleAdditionalInfoChange}
           initialInfo={
-            attributesData.additionalInfo && attributesData.additionalInfo.length > 0
+            attributesData.additionalInfo &&
+            attributesData.additionalInfo.length > 0
               ? attributesData.additionalInfo
               : initialAdditionalInfo
           }
@@ -876,14 +994,17 @@ export default function CreateProductForm({ productId }: { productId?: string })
       ),
     },
     {
-      id: "seo",
-      label: "SEO",
+      id: 'seo',
+      label: 'SEO',
       content: (
         <Seo
           key={seoResetKey}
           onChange={setSeoData}
           initialData={
-            seoData && (seoData.metaTitle || seoData.metaDescription || seoData.seoKeywords.length > 0)
+            seoData &&
+            (seoData.metaTitle ||
+              seoData.metaDescription ||
+              seoData.seoKeywords.length > 0)
               ? seoData
               : initialSeoForForm
           }
@@ -893,63 +1014,81 @@ export default function CreateProductForm({ productId }: { productId?: string })
   ];
 
   return (
-    <div className="min-h-screen ">
+    <div className='min-h-screen '>
       {isEditMode && productLoading && (
-        <div className="flex items-center justify-center py-20 text-slate-500">
+        <div className='flex items-center justify-center py-20 text-slate-500'>
           <span>Loading product data…</span>
         </div>
       )}
       {(!isEditMode || !productLoading) && (
-      <>
-      <div className="mx-auto w-full max-w-full grid grid-cols-1 gap-6 lg:grid-cols-12">
-        <div className="left-section space-y-6 col-span-6 lg:col-span-7">
-          <MainInformation
-            productName={productName}
-            setProductName={updateMainInformation}
-            shortDescription={shortDescription}
-            setShortDescription={updateShortDescription}
-            description={description}
-            setDescription={updateDescription}
-            brandOptions={brandOptions}
-            control={control as unknown as any}
-            isEditMode={isEditMode}
-            onEditorProcessingChange={setIsEditorProcessing}
-          />
+        <>
+          <div className='mx-auto w-full max-w-full grid grid-cols-1 gap-6 lg:grid-cols-12'>
+            <div className='left-section space-y-6 col-span-6 lg:col-span-7'>
+              <MainInformation
+                productName={productName}
+                setProductName={updateMainInformation}
+                shortDescription={shortDescription}
+                setShortDescription={updateShortDescription}
+                description={description}
+                setDescription={updateDescription}
+                brandOptions={brandOptions}
+                control={control as unknown as any}
+                isEditMode={isEditMode}
+                onEditorProcessingChange={setIsEditorProcessing}
+              />
 
-          <div className="rounded-2xl border border-slate-200 bg-white px-6 py-6 shadow-sm">
-            <CustomTab
-              tabs={tabItems}
-              className="space-y-4"
-              tabListClassName="justify-start"
-            />
+              <div className='lg:rounded-2xl border border-slate-200 bg-white px-6 py-6 shadow-sm'>
+                <CustomTab
+                  tabs={tabItems}
+                  className='space-y-4'
+                  tabListClassName='justify-start'
+                />
+              </div>
+            </div>
+
+            <div className='col-span-6 lg:col-span-5'>
+              <RightSection
+                key={rightResetKey}
+                categoriesList={categoriesList}
+                tagList={tagList}
+                onChange={handleRightSectionChange}
+                initialMainImageUrl={
+                  isEditMode ? (productData as any)?.image : undefined
+                }
+                initialGalleryUrls={
+                  isEditMode
+                    ? ((productData as any)?.galleryImages ?? [])
+                    : undefined
+                }
+                initialCategories={
+                  isEditMode
+                    ? ((productData as any)?.categories ?? []).map(
+                        (c: any) => c.categoryId,
+                      )
+                    : undefined
+                }
+                initialTags={
+                  isEditMode
+                    ? ((productData as any)?.tags ?? []).map(
+                        (t: any) => t.tagId,
+                      )
+                    : undefined
+                }
+              />
+            </div>
           </div>
-        </div>
-
-        <div className="col-span-6 lg:col-span-5">
-          <RightSection
-            key={rightResetKey}
-            categoriesList={categoriesList}
-            tagList={tagList}
-            onChange={handleRightSectionChange}
-            initialMainImageUrl={isEditMode ? (productData as any)?.image : undefined}
-            initialGalleryUrls={isEditMode ? ((productData as any)?.galleryImages ?? []) : undefined}
-            initialCategories={isEditMode ? ((productData as any)?.categories ?? []).map((c: any) => c.categoryId) : undefined}
-            initialTags={isEditMode ? ((productData as any)?.tags ?? []).map((t: any) => t.tagId) : undefined}
-          />
-        </div>
-      </div>
-      <div className="w-full flex justify-center py-10">
-        <CustomButton
-          type="button"
-          className="px-4"
-          onClick={handleSubmit(onSubmit)}
-          disabled={submitDisabled}
-          loading={mutationPending || isSubmitting}
-        >
-          {isEditMode ? "Update Product" : "Save Product"}
-        </CustomButton>
-      </div>
-      </>
+          <div className='w-full flex justify-center py-10'>
+            <CustomButton
+              type='button'
+              className='px-4'
+              onClick={handleSubmit(onSubmit)}
+              disabled={submitDisabled}
+              loading={mutationPending || isSubmitting}
+            >
+              {isEditMode ? 'Update Product' : 'Save Product'}
+            </CustomButton>
+          </div>
+        </>
       )}
     </div>
   );

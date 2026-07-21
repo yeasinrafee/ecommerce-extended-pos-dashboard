@@ -1,113 +1,143 @@
-"use client"
+'use client';
 
-import React from "react"
-import Table, { type Column } from "@/components/Common/Table"
-import TableSkeleton from "@/components/Common/TableSkeleton";
-import CustomButton from "@/components/Common/CustomButton"
-import CreateAttribute from "./CreateAttribute"
-import DeleteModal from "@/components/Common/DeleteModal"
-import SearchBar from "@/components/FormFields/SearchBar"
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
-import { Button } from "@/components/ui/button"
-import { MoreHorizontal } from "lucide-react"
-import * as api from "@/hooks/attribute.api"
-import type { Attribute } from "@/hooks/attribute.api"
+import React from 'react';
+import Table, { type Column } from '@/components/Common/Table';
+import TableSkeleton from '@/components/Common/TableSkeleton';
+import CustomButton from '@/components/Common/CustomButton';
+import CreateAttribute from './CreateAttribute';
+import DeleteModal from '@/components/Common/DeleteModal';
+import SearchBar from '@/components/FormFields/SearchBar';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
+import { MoreHorizontal } from 'lucide-react';
+import * as api from '@/hooks/attribute.api';
+import type { Attribute } from '@/hooks/attribute.api';
 
 export default function ManageAttributes() {
-  const [modalOpen, setModalOpen] = React.useState(false)
-  const [editing, setEditing] = React.useState<Attribute | null>(null)
-  const [page, setPage] = React.useState(1)
-  const limit = 10
+  const [modalOpen, setModalOpen] = React.useState(false);
+  const [editing, setEditing] = React.useState<Attribute | null>(null);
+  const [page, setPage] = React.useState(1);
+  const limit = 10;
 
   // search state
-  const [searchInput, setSearchInput] = React.useState("")
-  const [searchTerm, setSearchTerm] = React.useState<string | undefined>(undefined)
+  const [searchInput, setSearchInput] = React.useState('');
+  const [searchTerm, setSearchTerm] = React.useState<string | undefined>(
+    undefined,
+  );
 
   React.useEffect(() => {
     const handle = setTimeout(() => {
-      setPage(1)
-      setSearchTerm(searchInput.trim() || undefined)
-    }, 500)
-    return () => clearTimeout(handle)
-  }, [searchInput])
+      setPage(1);
+      setSearchTerm(searchInput.trim() || undefined);
+    }, 500);
+    return () => clearTimeout(handle);
+  }, [searchInput]);
 
-  const attrsQuery = api.usePaginatedAttributes(page, limit, searchTerm)
-  const { data, isLoading, error } = attrsQuery
-  const createMutation = api.useCreateAttribute()
-  const updateMutation = api.useUpdateAttribute()
-  const deleteMutation = api.useDeleteAttribute()
+  const attrsQuery = api.usePaginatedAttributes(page, limit, searchTerm);
+  const { data, isLoading, error } = attrsQuery;
+  const createMutation = api.useCreateAttribute();
+  const updateMutation = api.useUpdateAttribute();
+  const deleteMutation = api.useDeleteAttribute();
 
   const handleCreate = () => {
-    setEditing(null)
-    setModalOpen(true)
-  }
+    setEditing(null);
+    setModalOpen(true);
+  };
 
   const handleEdit = (attr: Attribute) => {
-    setEditing(attr)
-    setModalOpen(true)
-  }
+    setEditing(attr);
+    setModalOpen(true);
+  };
 
-  const [deleteTarget, setDeleteTarget] = React.useState<Attribute | null>(null)
-  const [deleteModalOpen, setDeleteModalOpen] = React.useState(false)
+  const [deleteTarget, setDeleteTarget] = React.useState<Attribute | null>(
+    null,
+  );
+  const [deleteModalOpen, setDeleteModalOpen] = React.useState(false);
 
   const handleDelete = (attr: Attribute) => {
-    setDeleteTarget(attr)
-    setDeleteModalOpen(true)
-  }
+    setDeleteTarget(attr);
+    setDeleteModalOpen(true);
+  };
 
   const handleSave = async (payload: { name: string; values?: string[] }) => {
     if (editing) {
-      await updateMutation.mutateAsync({ id: editing.id, payload })
-      setEditing((prev) => (prev ? { ...prev, name: payload.name, values: payload.values ?? [] } : prev))
+      await updateMutation.mutateAsync({ id: editing.id, payload });
+      setEditing((prev) =>
+        prev
+          ? { ...prev, name: payload.name, values: payload.values ?? [] }
+          : prev,
+      );
     } else {
-      await createMutation.mutateAsync(payload)
+      await createMutation.mutateAsync(payload);
     }
 
-    setModalOpen(false)
-  }
+    setModalOpen(false);
+  };
 
   const columns = React.useMemo<Column<Attribute>[]>(
     () => [
       {
-        header: "Name",
-        accessor: "name",
+        header: 'Name',
+        cell: (row) => (
+          <span className='truncate block max-w-[200px]'>{row.name}</span>
+        ),
       },
       {
-        header: "Values",
-        cell: (row) => (row.values && row.values.length > 0 ? row.values.join(', ') : '-'),
-        align: "left",
+        header: 'Values',
+        cell: (row) => {
+          const vals =
+            row.values && row.values.length > 0 ? row.values.join(', ') : '-';
+          return (
+            <span className='truncate block max-w-[250px]' title={vals}>
+              {vals}
+            </span>
+          );
+        },
+        align: 'left',
       },
       {
-        header: "Created",
-        accessor: "createdAt",
-        cell: (row) => new Date(row.createdAt).toLocaleString()
-      }
+        header: 'Created',
+        accessor: 'createdAt',
+        cell: (row) => new Date(row.createdAt).toLocaleString(),
+      },
     ],
     [],
-  )
+  );
 
   return (
-    <div>
-      <h2 className="mb-4 text-lg font-medium">Manage Attributes</h2>
+    <div className='p-3 sm:p-6'>
+      <h2 className='mb-4 text-lg font-medium'>Manage Attributes</h2>
 
-      <div className="flex items-center justify-between mb-4">
-        <SearchBar
-          searchInput={searchInput}
-          setSearchInput={setSearchInput}
-          clearSearch={() => setSearchInput("")}
-        />
-        <CustomButton onClick={handleCreate}>Create Attribute</CustomButton>
+      <div className='flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4'>
+        <div className='w-full sm:max-w-sm'>
+          <SearchBar
+            searchInput={searchInput}
+            setSearchInput={setSearchInput}
+            clearSearch={() => setSearchInput('')}
+          />
+        </div>
+        <CustomButton
+          onClick={handleCreate}
+          className='text-[11px] sm:text-xs px-2.5 sm:px-4 py-1.5 sm:py-2 w-full sm:w-auto'
+        >
+          Create Attribute
+        </CustomButton>
       </div>
 
       {isLoading ? (
         <TableSkeleton />
       ) : error ? (
-        <p className="text-red-500">Failed to load attributes</p>
+        <p className='text-red-500'>Failed to load attributes</p>
       ) : (
         <Table<Attribute>
           columns={columns}
           data={data?.data ?? []}
-          rowKey="id"
+          rowKey='id'
           pageSize={limit}
           serverSide
           currentPage={page}
@@ -116,7 +146,7 @@ export default function ManageAttributes() {
           renderRowActions={(attr) => (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button variant='ghost' size='icon'>
                   <MoreHorizontal />
                 </Button>
               </DropdownMenuTrigger>
@@ -139,7 +169,9 @@ export default function ManageAttributes() {
       <CreateAttribute
         open={modalOpen}
         onOpenChange={setModalOpen}
-        defaultValues={editing ? { name: editing.name, values: editing.values } : undefined}
+        defaultValues={
+          editing ? { name: editing.name, values: editing.values } : undefined
+        }
         submitting={createMutation.isPending || updateMutation.isPending}
         onSubmit={handleSave}
       />
@@ -147,15 +179,21 @@ export default function ManageAttributes() {
       <DeleteModal
         open={deleteModalOpen}
         onOpenChange={setDeleteModalOpen}
-        title="Confirm deletion"
-        description={deleteTarget ? `Are you sure you want to delete attribute "${deleteTarget.name}"? This action cannot be undone.` : undefined}
+        title='Confirm deletion'
+        description={
+          deleteTarget
+            ? `Are you sure you want to delete attribute "${deleteTarget.name}"? This action cannot be undone.`
+            : undefined
+        }
         loading={deleteMutation.isPending}
         onConfirm={() => {
           if (deleteTarget) {
-            deleteMutation.mutate(deleteTarget.id, { onSuccess: () => setDeleteModalOpen(false) });
+            deleteMutation.mutate(deleteTarget.id, {
+              onSuccess: () => setDeleteModalOpen(false),
+            });
           }
         }}
       />
     </div>
-  )
+  );
 }

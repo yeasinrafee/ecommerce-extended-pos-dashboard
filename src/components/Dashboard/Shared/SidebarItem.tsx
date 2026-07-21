@@ -106,7 +106,7 @@ const SidebarItem = ({
                         : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
                     )}
                   >
-                    <Icon className='h-5 w-5' />
+                    <Icon className='h-4 w-4 sm:h-5 sm:w-5' />
                     <span className='sr-only'>{label}</span>
                   </button>
                 </DropdownMenuTrigger>
@@ -141,7 +141,11 @@ const SidebarItem = ({
                     asChild
                   >
                     {item.href ? (
-                      <Link href={item.href} className='flex items-center gap-3 w-full px-3 py-2'>
+                      <Link
+                        href={item.href}
+                        onClick={onClick}
+                        className='flex items-center gap-3 w-full px-3 py-2'
+                      >
                         {SubIcon ? <SubIcon className='h-4 w-4' /> : null}
                         <span>{item.label}</span>
                       </Link>
@@ -175,7 +179,7 @@ const SidebarItem = ({
                       : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
                   )}
                 >
-                  <Icon className='h-5 w-5' />
+                  <Icon className='h-4 w-4 sm:h-5 sm:w-5' />
                   <span className='sr-only'>{label}</span>
                 </Link>
               ) : (
@@ -188,7 +192,7 @@ const SidebarItem = ({
                   )}
                   onClick={onClick}
                 >
-                  <Icon className='h-5 w-5' />
+                  <Icon className='h-4 w-4 sm:h-5 sm:w-5' />
                   <span className='sr-only'>{label}</span>
                 </button>
               )}
@@ -208,24 +212,28 @@ const SidebarItem = ({
       {href && !hasSubItems ? (
         <Link
           href={href}
+          onClick={onClick}
           className={cn(itemBase, isActive ? topLevelActive : topLevelInactive)}
         >
-          <Icon className='h-5 w-5 shrink-0' />
+          <Icon className='h-4 w-4 sm:h-5 sm:w-5 shrink-0' />
           <span>{label}</span>
         </Link>
       ) : (
         <button
-          className={cn(itemBase, isParentActive ? topLevelActive : topLevelInactive)}
+          className={cn(
+            itemBase,
+            isParentActive ? topLevelActive : topLevelInactive,
+          )}
           onClick={hasSubItems ? () => setExpanded(!expanded) : onClick}
         >
-          <Icon className='h-5 w-5 shrink-0' />
+          <Icon className='h-4 w-4 sm:h-5 sm:w-5 shrink-0' />
           <span>{label}</span>
           {hasSubItems && (
             <span className='ml-auto'>
               {expanded ? (
-                <ChevronDown className='h-4 w-4' />
+                <ChevronDown className='h-3.5 w-3.5 sm:h-4 sm:w-4' />
               ) : (
-                <ChevronRight className='h-4 w-4' />
+                <ChevronRight className='h-3.5 w-3.5 sm:h-4 sm:w-4' />
               )}
             </span>
           )}
@@ -243,6 +251,7 @@ const SidebarItem = ({
               <Link
                 key={index}
                 href={item.href}
+                onClick={onClick}
                 className={cn(
                   itemBase,
                   'py-2',

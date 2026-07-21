@@ -1,121 +1,138 @@
-"use client"
+'use client';
 
-import React from "react"
-import Table, { type Column } from "@/components/Common/Table"
-import TableSkeleton from "@/components/Common/TableSkeleton";
-import CustomButton from "@/components/Common/CustomButton"
-import CreateTag from "./CreateTag"
-import DeleteModal from "@/components/Common/DeleteModal"
-import SearchBar from "@/components/FormFields/SearchBar"
+import React from 'react';
+import Table, { type Column } from '@/components/Common/Table';
+import TableSkeleton from '@/components/Common/TableSkeleton';
+import CustomButton from '@/components/Common/CustomButton';
+import CreateTag from './CreateTag';
+import DeleteModal from '@/components/Common/DeleteModal';
+import SearchBar from '@/components/FormFields/SearchBar';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-} from "@/components/ui/dropdown-menu"
-import { Button } from "@/components/ui/button"
-import { MoreHorizontal } from "lucide-react"
-import * as productApi from "@/hooks/product-tag.api"
-import * as blogApi from "@/hooks/blog-tag.api"
-import type { Tag } from "@/hooks/product-tag.api"
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
+import { MoreHorizontal } from 'lucide-react';
+import * as productApi from '@/hooks/product-tag.api';
+import * as blogApi from '@/hooks/blog-tag.api';
+import type { Tag } from '@/hooks/product-tag.api';
 
-export default function ManageTags({ kind = 'product' }: { kind?: 'product' | 'blog' }) {
-  const [modalOpen, setModalOpen] = React.useState(false)
-  const [editing, setEditing] = React.useState<Tag | null>(null)
-  const [page, setPage] = React.useState(1)
-  const limit = 10
+export default function ManageTags({
+  kind = 'product',
+}: {
+  kind?: 'product' | 'blog';
+}) {
+  const [modalOpen, setModalOpen] = React.useState(false);
+  const [editing, setEditing] = React.useState<Tag | null>(null);
+  const [page, setPage] = React.useState(1);
+  const limit = 10;
 
   // search state
-  const [searchInput, setSearchInput] = React.useState("")
-  const [searchTerm, setSearchTerm] = React.useState<string | undefined>(undefined)
+  const [searchInput, setSearchInput] = React.useState('');
+  const [searchTerm, setSearchTerm] = React.useState<string | undefined>(
+    undefined,
+  );
 
   // debounce search input by 500ms
   React.useEffect(() => {
     const handle = setTimeout(() => {
-      setPage(1) // reset to first page when searching
-      setSearchTerm(searchInput.trim() || undefined)
-    }, 500)
-    return () => clearTimeout(handle)
-  }, [searchInput])
+      setPage(1); // reset to first page when searching
+      setSearchTerm(searchInput.trim() || undefined);
+    }, 500);
+    return () => clearTimeout(handle);
+  }, [searchInput]);
 
-  const api = kind === 'blog' ? blogApi : productApi
+  const api = kind === 'blog' ? blogApi : productApi;
 
-  const tagsQuery = api.usePaginatedTags(page, limit, searchTerm)
-  const { data, isLoading, error } = tagsQuery
-  const createMutation = api.useCreateTag()
-  const updateMutation = api.useUpdateTag()
-  const deleteMutation = api.useDeleteTag()
+  const tagsQuery = api.usePaginatedTags(page, limit, searchTerm);
+  const { data, isLoading, error } = tagsQuery;
+  const createMutation = api.useCreateTag();
+  const updateMutation = api.useUpdateTag();
+  const deleteMutation = api.useDeleteTag();
 
   const handleCreate = () => {
-    setEditing(null)
-    setModalOpen(true)
-  }
+    setEditing(null);
+    setModalOpen(true);
+  };
 
   const handleEdit = (tag: Tag) => {
-    setEditing(tag)
-    setModalOpen(true)
-  }
+    setEditing(tag);
+    setModalOpen(true);
+  };
 
-  const [deleteTarget, setDeleteTarget] = React.useState<Tag | null>(null)
-  const [deleteModalOpen, setDeleteModalOpen] = React.useState(false)
+  const [deleteTarget, setDeleteTarget] = React.useState<Tag | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = React.useState(false);
 
   const handleDelete = (tag: Tag) => {
-    setDeleteTarget(tag)
-    setDeleteModalOpen(true)
-  }
+    setDeleteTarget(tag);
+    setDeleteModalOpen(true);
+  };
 
   const handleSaveTag = async (payload: { name: string }) => {
     if (editing) {
-      await updateMutation.mutateAsync({ id: editing.id, name: payload.name })
-      setEditing((prev) => (prev ? { ...prev, name: payload.name } : prev))
+      await updateMutation.mutateAsync({ id: editing.id, name: payload.name });
+      setEditing((prev) => (prev ? { ...prev, name: payload.name } : prev));
     } else {
-      await createMutation.mutateAsync(payload.name)
+      await createMutation.mutateAsync(payload.name);
     }
 
-    setModalOpen(false)
-  }
+    setModalOpen(false);
+  };
 
   const columns = React.useMemo<Column<Tag>[]>(
     () => [
       {
-        header: "Tag",
-        accessor: "name",
+        header: 'Tag',
+        cell: (row) => (
+          <span className='truncate block max-w-[200px]'>{row.name}</span>
+        ),
       },
       {
-        header: "Products",
+        header: 'Products',
         cell: (row) => (
-          <span className="inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
+          <span className='inline-flex items-center justify-center min-w-[28px] px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700'>
             {(row as any).productCount ?? 0}
           </span>
         ),
-        align: "center",
+        align: 'center',
       },
     ],
     [],
-  )
+  );
 
   return (
     <div>
-      <h2 className="mb-4 text-lg font-medium">{kind === 'blog' ? 'Manage Blog Tags' : 'Manage Product Tags'}</h2>
+      <h2 className='mb-4 text-lg font-medium'>
+        {kind === 'blog' ? 'Manage Blog Tags' : 'Manage Product Tags'}
+      </h2>
 
-      <div className="flex items-center justify-between mb-4">
-        <SearchBar
-          searchInput={searchInput}
-          setSearchInput={setSearchInput}
-          clearSearch={() => setSearchInput("")}
-        />
-        <CustomButton onClick={handleCreate}>Create Tag</CustomButton>
+      <div className='flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4'>
+        <div className='w-full sm:max-w-sm'>
+          <SearchBar
+            searchInput={searchInput}
+            setSearchInput={setSearchInput}
+            clearSearch={() => setSearchInput('')}
+          />
+        </div>
+        <CustomButton
+          onClick={handleCreate}
+          className='text-[11px] sm:text-xs px-2.5 sm:px-4 py-1.5 sm:py-2 w-full sm:w-auto'
+        >
+          Create Tag
+        </CustomButton>
       </div>
 
       {isLoading ? (
         <TableSkeleton />
       ) : error ? (
-        <p className="text-red-500">Failed to load tags</p>
+        <p className='text-red-500'>Failed to load tags</p>
       ) : (
         <Table<Tag>
           columns={columns}
           data={data?.data ?? []}
-          rowKey="id"
+          rowKey='id'
           pageSize={limit}
           serverSide
           currentPage={page}
@@ -124,7 +141,7 @@ export default function ManageTags({ kind = 'product' }: { kind?: 'product' | 'b
           renderRowActions={(tag) => (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button variant='ghost' size='icon'>
                   <MoreHorizontal />
                 </Button>
               </DropdownMenuTrigger>
@@ -133,7 +150,7 @@ export default function ManageTags({ kind = 'product' }: { kind?: 'product' | 'b
                   Edit
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  variant="destructive"
+                  variant='destructive'
                   onClick={() => handleDelete(tag)}
                 >
                   Delete
@@ -155,15 +172,21 @@ export default function ManageTags({ kind = 'product' }: { kind?: 'product' | 'b
       <DeleteModal
         open={deleteModalOpen}
         onOpenChange={setDeleteModalOpen}
-        title="Confirm deletion"
-        description={deleteTarget ? `Are you sure you want to delete tag "${deleteTarget.name}"? This action cannot be undone.` : undefined}
+        title='Confirm deletion'
+        description={
+          deleteTarget
+            ? `Are you sure you want to delete tag "${deleteTarget.name}"? This action cannot be undone.`
+            : undefined
+        }
         loading={deleteMutation.isPending}
         onConfirm={() => {
           if (deleteTarget) {
-            deleteMutation.mutate(deleteTarget.id, { onSuccess: () => setDeleteModalOpen(false) });
+            deleteMutation.mutate(deleteTarget.id, {
+              onSuccess: () => setDeleteModalOpen(false),
+            });
           }
         }}
       />
     </div>
-  )
+  );
 }

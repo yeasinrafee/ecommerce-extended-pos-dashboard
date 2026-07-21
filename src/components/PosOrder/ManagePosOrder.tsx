@@ -418,11 +418,11 @@ const ManagePosOrder: React.FC = () => {
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ render ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 
   return (
-    <div className='space-y-4'>
+    <div className='space-y-4 p-3 sm:p-6'>
       {/* header row */}
-      <div className='flex items-center justify-between flex-wrap gap-3'>
-        <h2 className='text-xl font-semibold flex items-center gap-2'>
-          <Receipt className='size-5 text-brand-primary' />
+      <div className='flex flex-col sm:flex-row sm:items-center justify-between gap-3'>
+        <h2 className='text-lg sm:text-xl font-semibold flex items-center gap-2'>
+          <Receipt className='size-5 text-brand-primary shrink-0' />
           Manage POS Bills
         </h2>
         <CustomButton
@@ -435,23 +435,23 @@ const ManagePosOrder: React.FC = () => {
 
       {/* ── Filters ── */}
       <Card className='p-3 border-slate-100 shadow-sm'>
-        <div className='flex flex-col sm:flex-row gap-3'>
+        <div className='flex flex-col sm:flex-row gap-2 items-stretch sm:items-center'>
           {/* Search */}
-          <div className='relative flex-1'>
-            <Search className='absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none' />
+          <div className='relative flex-1 min-w-0'>
+            <Search className='absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-slate-400 pointer-events-none' />
             <input
               type='text'
               placeholder='Search invoice # or cashier…'
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className='w-full pl-9 pr-9 h-10 bg-slate-50 border border-slate-200 text-slate-800 text-sm rounded-xl outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all'
+              className='w-full pl-8 pr-8 h-8 bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-lg outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all'
             />
             {searchInput && (
               <button
                 onClick={() => setSearchInput('')}
-                className='absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600'
+                className='absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600'
               >
-                <X className='size-3.5' />
+                <X className='size-3' />
               </button>
             )}
           </div>
@@ -463,7 +463,7 @@ const ManagePosOrder: React.FC = () => {
               setPaymentStatusFilter(e.target.value as PaymentStatusFilter);
               setPage(1);
             }}
-            className='h-10 border border-slate-200 bg-slate-50 text-sm rounded-xl px-3 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all min-w-[150px]'
+            className='h-8 border border-slate-200 bg-slate-50 text-xs rounded-lg px-2 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all min-w-[130px] w-full sm:w-auto'
           >
             {PAYMENT_STATUS_OPTS.map((o) => (
               <option key={o.value} value={o.value}>

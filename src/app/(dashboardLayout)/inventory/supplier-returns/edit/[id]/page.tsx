@@ -5,8 +5,16 @@ import EditSupplierReturnContent from './EditSupplierReturnContent';
 
 export default function EditSupplierReturnPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader /></div>}>
-      <EditSupplierReturnContent />
+    <Suspense
+      fallback={
+        <div className='flex items-center justify-center h-64'>
+          <Loader />
+        </div>
+      }
+    >
+      <div className='p-0 lg:p-6'>
+        <EditSupplierReturnContent />
+      </div>
     </Suspense>
   );
 }

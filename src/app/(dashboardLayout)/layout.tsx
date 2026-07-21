@@ -10,7 +10,7 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const isMobile = useMediaQuery('(max-width: 768px)');
+  const isMobile = useMediaQuery('(max-width: 1365px)');
   const pathname = usePathname();
   const toggleMobileSidebar = () => setMobileOpen(!mobileOpen);
 
@@ -47,7 +47,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         />
 
         {/* Page Content */}
-        <main className='flex-1 overflow-auto bg-[#f4f5f7] p-6'>
+        <main className='flex-1 overflow-auto bg-[#f4f5f7] p-0'>
           {children}
         </main>
       </div>

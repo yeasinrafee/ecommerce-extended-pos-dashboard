@@ -5,8 +5,16 @@ import EditCustomerReturnContent from './EditCustomerReturnContent';
 
 export default function EditCustomerReturnPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader /></div>}>
-      <EditCustomerReturnContent />
+    <Suspense
+      fallback={
+        <div className='flex items-center justify-center h-64'>
+          <Loader />
+        </div>
+      }
+    >
+      <div className='p-0 lg:p-6'>
+        <EditCustomerReturnContent />
+      </div>
     </Suspense>
   );
 }

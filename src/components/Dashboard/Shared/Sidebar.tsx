@@ -57,7 +57,7 @@ const Sidebar = ({
 }: SidebarProps) => {
   const [internalCollapsed, setInternalCollapsed] = useState(collapsed);
   const [mounted, setMounted] = useState(false);
-  const isMobile = useMediaQuery('(max-width: 768px)');
+  const isMobile = useMediaQuery('(max-width: 1365px)');
   const pathname = usePathname();
 
   useEffect(() => {
@@ -121,6 +121,7 @@ const Sidebar = ({
   };
 
   const isCollapsed = setCollapsed ? collapsed : internalCollapsed;
+  const effectiveCollapsed = isMobile ? false : isCollapsed;
 
   const getInitials = (name?: string) => {
     if (!name) return 'AU';
@@ -132,57 +133,65 @@ const Sidebar = ({
 
   return (
     <TooltipProvider>
+      {/* Mobile overlay backdrop */}
+      {isMobile && mobileOpen && (
+        <div
+          className='fixed inset-0 z-40 bg-black/40 backdrop-blur-sm 2xl:hidden'
+          onClick={() => setMobileOpen?.(false)}
+        />
+      )}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 border-r border-slate-200 bg-white text-slate-900 shadow-sm transition-all duration-300 ease-in-out md:relative md:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 border-r border-slate-200 bg-white text-slate-900 shadow-sm transition-all duration-300 ease-in-out 2xl:relative 2xl:translate-x-0',
           isMobile && !mobileOpen ? '-translate-x-full' : 'translate-x-0',
-          isCollapsed ? 'w-16' : 'w-56 lg:w-68',
+          isMobile ? 'w-80' : '',
+          !isMobile && (isCollapsed ? 'w-16' : 'w-56 2xl:w-68'),
         )}
       >
         {/* Sidebar Header */}
         <div
           className={cn(
             'flex h-16 items-center border-b border-slate-200 bg-white',
-            isCollapsed ? 'justify-center px-0' : 'justify-between px-4',
+            effectiveCollapsed ? 'justify-center px-0' : 'justify-between px-4',
           )}
         >
-          {!isCollapsed && (
+          {!effectiveCollapsed && (
             <div className='flex items-center justify-center w-full gap-2'>
               {logo ?? (
                 <Image
                   src={logoPos}
-                  alt="POS Logo"
+                  alt='POS Logo'
                   width={150}
                   height={36}
-                  className="object-contain"
+                  className='object-contain'
                   priority
                 />
               )}
             </div>
           )}
-          {isCollapsed && (
+          {effectiveCollapsed && (
             <Image
               src={posIcon}
-              alt="POS Icon"
+              alt='POS Icon'
               width={64}
               height={32}
-              className="object-contain"
+              className='object-contain'
               priority
             />
           )}
-          {isMobile && !isCollapsed && (
+          {isMobile && !effectiveCollapsed && (
             <Button
               variant='ghost'
               size='icon'
               onClick={toggleMobile}
-              className='md:hidden'
+              className='2xl:hidden'
             >
               <ChevronLeft className='h-5 w-5' />
             </Button>
           )}
         </div>
         <ScrollArea className='h-[calc(100vh-8rem)]'>
-          <div className={cn('py-4', isCollapsed ? 'px-1' : 'px-2.5')}>
+          <div className={cn('py-4', effectiveCollapsed ? 'px-1' : 'px-2.5')}>
             <div className='space-y-1'>
               {processedRoutes?.map((route, index) => (
                 <SidebarItem
@@ -190,9 +199,10 @@ const Sidebar = ({
                   icon={route.icon}
                   label={route.label}
                   active={route.active}
-                  collapsed={isCollapsed}
+                  collapsed={effectiveCollapsed}
                   href={route.href}
                   subItems={route.subItems}
+                  onClick={isMobile ? () => setMobileOpen?.(false) : undefined}
                 />
               ))}
             </div>
@@ -204,10 +214,10 @@ const Sidebar = ({
           <div
             className={cn(
               'absolute bottom-0 w-full border-t border-slate-200 bg-white',
-              isCollapsed ? 'flex justify-center p-2' : 'p-3.5',
+              effectiveCollapsed ? 'flex justify-center p-2' : 'p-3.5',
             )}
           >
-            {isCollapsed ? (
+            {effectiveCollapsed ? (
               <Avatar>
                 <AvatarImage
                   src={mounted ? (currentUser.image ?? undefined) : undefined}

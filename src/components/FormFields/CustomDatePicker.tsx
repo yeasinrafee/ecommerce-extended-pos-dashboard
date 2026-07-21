@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import ReactDOM from 'react-dom';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -197,6 +198,39 @@ const CustomDatePicker = React.forwardRef<
     };
 
     const weeks = React.useMemo(() => getGridDates(month), [month]);
+    const buttonRef = React.useRef<HTMLButtonElement | null>(null);
+    const [popupStyle, setPopupStyle] = React.useState<React.CSSProperties>({});
+
+    React.useEffect(() => {
+      if (!open) return;
+      if (buttonRef.current) {
+        const r = buttonRef.current.getBoundingClientRect();
+        const below = window.innerHeight - r.bottom;
+        const spaceBelow = below - 8;
+        const spaceAbove = r.top - 8;
+        const popupH = 340;
+        const popupW = Math.max(r.width, 280);
+        // Ensure popup doesn't overflow right edge
+        const left = Math.min(r.left, window.innerWidth - popupW - 8);
+        if (spaceBelow >= popupH || spaceBelow >= spaceAbove) {
+          setPopupStyle({
+            position: 'fixed',
+            top: r.bottom + 4,
+            left: Math.max(4, left),
+            width: popupW,
+            zIndex: 9999,
+          });
+        } else {
+          setPopupStyle({
+            position: 'fixed',
+            bottom: window.innerHeight - r.top + 4,
+            left: Math.max(4, left),
+            width: popupW,
+            zIndex: 9999,
+          });
+        }
+      }
+    }, [open]);
 
     return (
       <div className={cn('inline-block w-full', fieldClassName, className)}>
@@ -214,7 +248,7 @@ const CustomDatePicker = React.forwardRef<
         <div className='relative inline-block w-full'>
           <Button
             id={id}
-            ref={ref}
+            ref={buttonRef}
             type={buttonProps?.type ?? 'button'}
             variant={size === 'md' ? 'outline' : 'default'}
             className={cn(
@@ -232,114 +266,118 @@ const CustomDatePicker = React.forwardRef<
             <FiCalendar className='ml-2 h-4 w-4 text-muted-foreground' />
           </Button>
 
-          {open ? (
-            <div
-              ref={popoverRef}
-              role='dialog'
-              aria-modal='false'
-              className={cn(
-                'absolute left-0 mt-2 z-50 w-72 min-w-[220px] rounded-md bg-popover text-popover-foreground shadow-lg',
-                popoverClassName,
-              )}
-            >
-              <div className={cn('p-2', calendarClassName)}>
-                <div className='flex items-center justify-between px-2 py-1'>
-                  <button
-                    type='button'
-                    onClick={() => setMonth((m) => addMonths(m, -1))}
-                    className='inline-flex items-center justify-center rounded p-1 hover:bg-accent/50'
-                    aria-label='Previous month'
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-                  <div className='text-sm font-medium'>
-                    {month.toLocaleString(undefined, { month: 'long' })}{' '}
-                    {month.getFullYear()}
-                  </div>
-                  <button
-                    type='button'
-                    onClick={() => setMonth((m) => addMonths(m, 1))}
-                    className='inline-flex items-center justify-center rounded p-1 hover:bg-accent/50'
-                    aria-label='Next month'
-                  >
-                    <ChevronRight size={16} />
-                  </button>
-                </div>
-
-                <div className='mt-2 grid grid-cols-7 gap-1 text-center text-xs text-muted-foreground'>
-                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(
-                    (d) => (
-                      <div key={d} className='py-1 font-medium'>
-                        {d}
-                      </div>
-                    ),
-                  )}
-                </div>
-
-                <div className='mt-1 grid grid-cols-7 gap-1'>
-                  {weeks.map((week, wi) => (
-                    <React.Fragment key={wi}>
-                      {week.map((day) => {
-                        const isCurrentMonth =
-                          day.getMonth() === month.getMonth();
-                        const isToday = isSameDay(day, new Date());
-                        const isSelected = isSameDay(day, selected ?? null);
-                        const disabledDay =
-                          (min && day < min) || (max && day > max);
-
-                        return (
-                          <button
-                            key={day.toISOString()}
-                            type='button'
-                            onClick={() => !disabledDay && handleSelect(day)}
-                            className={cn(
-                              'flex h-8 w-8 items-center justify-center rounded text-sm',
-                              dayClassName,
-                              !isCurrentMonth && 'text-muted-foreground',
-                              isToday && todayClassName
-                                ? todayClassName
-                                : isToday && 'ring-1 ring-ring',
-                              isSelected && selectedDayClassName
-                                ? selectedDayClassName
-                                : isSelected &&
-                                    'bg-primary text-primary-foreground',
-                              disabledDay && 'opacity-40 pointer-events-none',
-                            )}
-                            aria-pressed={isSelected}
-                          >
-                            {day.getDate()}
-                          </button>
-                        );
-                      })}
-                    </React.Fragment>
-                  ))}
-                </div>
-
-                <div className='mt-3 flex items-center justify-between px-2'>
-                  <button
-                    type='button'
-                    onClick={handleClear}
-                    className={cn(
-                      'inline-flex items-center gap-2 rounded px-2 py-1 text-sm',
-                      clearButtonClassName,
-                    )}
-                  >
-                    <X size={14} />
-                    Clear
-                  </button>
-                  <div className='flex items-center gap-2'>
+          {open &&
+            typeof document !== 'undefined' &&
+            ReactDOM.createPortal(
+              <div
+                ref={popoverRef}
+                role='dialog'
+                aria-modal='false'
+                style={popupStyle}
+                className={cn(
+                  'w-72 min-w-[220px] rounded-md bg-popover text-popover-foreground shadow-lg',
+                  popoverClassName,
+                )}
+              >
+                <div className={cn('p-2', calendarClassName)}>
+                  <div className='flex items-center justify-between px-2 py-1'>
                     <button
                       type='button'
-                      onClick={() => setOpen(false)}
-                      className='rounded px-2 py-1 text-sm hover:bg-accent/50'
+                      onClick={() => setMonth((m) => addMonths(m, -1))}
+                      className='inline-flex items-center justify-center rounded p-1 hover:bg-accent/50'
+                      aria-label='Previous month'
                     >
-                      Close
+                      <ChevronLeft size={16} />
+                    </button>
+                    <div className='text-sm font-medium'>
+                      {month.toLocaleString(undefined, { month: 'long' })}{' '}
+                      {month.getFullYear()}
+                    </div>
+                    <button
+                      type='button'
+                      onClick={() => setMonth((m) => addMonths(m, 1))}
+                      className='inline-flex items-center justify-center rounded p-1 hover:bg-accent/50'
+                      aria-label='Next month'
+                    >
+                      <ChevronRight size={16} />
                     </button>
                   </div>
+
+                  <div className='mt-2 grid grid-cols-7 gap-1 text-center text-xs text-muted-foreground'>
+                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(
+                      (d) => (
+                        <div key={d} className='py-1 font-medium'>
+                          {d}
+                        </div>
+                      ),
+                    )}
+                  </div>
+
+                  <div className='mt-1 grid grid-cols-7 gap-1'>
+                    {weeks.map((week, wi) => (
+                      <React.Fragment key={wi}>
+                        {week.map((day) => {
+                          const isCurrentMonth =
+                            day.getMonth() === month.getMonth();
+                          const isToday = isSameDay(day, new Date());
+                          const isSelected = isSameDay(day, selected ?? null);
+                          const disabledDay =
+                            (min && day < min) || (max && day > max);
+
+                          return (
+                            <button
+                              key={day.toISOString()}
+                              type='button'
+                              onClick={() => !disabledDay && handleSelect(day)}
+                              className={cn(
+                                'flex h-8 w-8 items-center justify-center rounded text-sm',
+                                dayClassName,
+                                !isCurrentMonth && 'text-muted-foreground',
+                                isToday && todayClassName
+                                  ? todayClassName
+                                  : isToday && 'ring-1 ring-ring',
+                                isSelected && selectedDayClassName
+                                  ? selectedDayClassName
+                                  : isSelected &&
+                                      'bg-primary text-primary-foreground',
+                                disabledDay && 'opacity-40 pointer-events-none',
+                              )}
+                              aria-pressed={isSelected}
+                            >
+                              {day.getDate()}
+                            </button>
+                          );
+                        })}
+                      </React.Fragment>
+                    ))}
+                  </div>
+
+                  <div className='mt-3 flex items-center justify-between px-2'>
+                    <button
+                      type='button'
+                      onClick={handleClear}
+                      className={cn(
+                        'inline-flex items-center gap-2 rounded px-2 py-1 text-sm',
+                        clearButtonClassName,
+                      )}
+                    >
+                      <X size={14} />
+                      Clear
+                    </button>
+                    <div className='flex items-center gap-2'>
+                      <button
+                        type='button'
+                        onClick={() => setOpen(false)}
+                        className='rounded px-2 py-1 text-sm hover:bg-accent/50'
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          ) : null}
+              </div>,
+              document.body,
+            )}
         </div>
       </div>
     );

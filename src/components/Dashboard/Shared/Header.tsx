@@ -140,7 +140,7 @@ const Header = ({
   return (
     <header
       className={cn(
-        'flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6',
+        'flex h-16 items-center justify-between border-b border-slate-200 bg-white px-3 sm:px-6',
         className,
       )}
     >
@@ -149,7 +149,7 @@ const Header = ({
           variant='ghost'
           size='icon'
           onClick={onMenuClick}
-          className='md:hidden'
+          className='2xl:hidden'
         >
           <Menu className='h-5 w-5' />
         </Button>
@@ -159,7 +159,7 @@ const Header = ({
           size='sm'
           onClick={toggleCollapse}
           className={cn(
-            'h-8 w-8 bg-gray-100 text-slate-700 p-0 hidden md:flex cursor-pointer',
+            'h-8 w-8 bg-gray-100 text-slate-700 p-0 hidden 2xl:flex cursor-pointer',
             collapsed ? 'rotate-180' : '',
           )}
         >

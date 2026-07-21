@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Check,
   Printer,
+  ScanBarcode,
 } from 'lucide-react';
 import {
   Select,
@@ -641,20 +642,28 @@ const CreatePosOrder: React.FC = () => {
             <input
               id='pos-search'
               type='text'
-              placeholder='Search product name or SKU...'
+              placeholder='Search product name, sku or barcode'
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className='w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 text-sm text-gray-900 rounded-full focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all'
+              className='w-full pl-10 pr-20 py-2.5 bg-gray-50 border border-gray-200 text-sm text-gray-900 rounded-full focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all'
             />
             {searchInput && (
               <button
                 type='button'
                 onClick={() => setSearchInput('')}
-                className='absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors'
+                className='absolute right-10 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors'
               >
                 <X className='size-4' />
               </button>
             )}
+            <button
+              type='button'
+              onClick={() => document.getElementById('pos-search')?.focus()}
+              className='absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors'
+              title='Scan barcode'
+            >
+              <ScanBarcode className='size-5' />
+            </button>
           </div>
 
           {/* Barcode Scanner Status */}
@@ -733,7 +742,7 @@ const CreatePosOrder: React.FC = () => {
         {/* Product grid */}
         <div className='flex-1 overflow-y-auto p-3 sm:p-4 lg:p-4 xl:p-5 pb-24 lg:pb-5'>
           {productsLoading ? (
-            <div className='grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4'>
+            <div className='grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4'>
               {Array.from({ length: 12 }).map((_, i) => (
                 <div
                   key={i}
@@ -752,7 +761,7 @@ const CreatePosOrder: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className='grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4'>
+            <div className='grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4'>
               {filteredProducts.map((product) => {
                 const hasVariations = product.productVariations.length > 0;
                 const inCart = isProductInCart(product.id);
