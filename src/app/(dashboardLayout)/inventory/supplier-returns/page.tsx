@@ -6,8 +6,14 @@ import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import { ApiResponse } from '@/types/auth';
 import {
-  LuSearch, LuPlus, LuEye, LuRefreshCw, LuX,
-  LuCircleCheck, LuCircleX, LuTruck,
+  LuSearch,
+  LuPlus,
+  LuEye,
+  LuRefreshCw,
+  LuX,
+  LuCircleCheck,
+  LuCircleX,
+  LuTruck,
 } from 'react-icons/lu';
 import { toast } from 'react-hot-toast';
 import Loader from '@/components/Common/Loader';
@@ -16,8 +22,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import {
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
-  DropdownMenuItem, DropdownMenuSeparator,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { PaginationControl } from '@/components/Common/Pagination';
 import DeleteModal from '@/components/Common/DeleteModal';
@@ -66,46 +75,85 @@ export default function SupplierReturnsPage() {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [selectedSupplier, setSelectedSupplier] = useState('');
 
-  const [detailsReturn, setDetailsReturn] = useState<SupplierReturn | null>(null);
+  const [detailsReturn, setDetailsReturn] = useState<SupplierReturn | null>(
+    null,
+  );
   const [detailsLoading, setDetailsLoading] = useState(false);
-  const [completeTarget, setCompleteTarget] = useState<SupplierReturn | null>(null);
+  const [completeTarget, setCompleteTarget] = useState<SupplierReturn | null>(
+    null,
+  );
   const [cancelTarget, setCancelTarget] = useState<SupplierReturn | null>(null);
 
-  const hasFilters = !!(searchTerm || selectedLocation || selectedStatus || selectedSupplier);
+  const hasFilters = !!(
+    searchTerm ||
+    selectedLocation ||
+    selectedStatus ||
+    selectedSupplier
+  );
 
   // ─── Queries ─────────────────────────────────────────────────────────────────
   const { data: returnsRes, isLoading } = useQuery({
-    queryKey: ['supplier-returns', 'list', page, limit, searchTerm, selectedLocation, selectedStatus, selectedSupplier],
+    queryKey: [
+      'supplier-returns',
+      'list',
+      page,
+      limit,
+      searchTerm,
+      selectedLocation,
+      selectedStatus,
+      selectedSupplier,
+    ],
     queryFn: async () => {
-      const r = await apiClient.get<ApiResponse<any>>('/supplier-returns/get-all-paginated', {
-        params: { page, limit, searchTerm: searchTerm || undefined, locationId: selectedLocation || undefined, status: selectedStatus || undefined, supplierId: selectedSupplier || undefined },
-      });
+      const r = await apiClient.get<ApiResponse<any>>(
+        '/supplier-returns/get-all-paginated',
+        {
+          params: {
+            page,
+            limit,
+            searchTerm: searchTerm || undefined,
+            locationId: selectedLocation || undefined,
+            status: selectedStatus || undefined,
+            supplierId: selectedSupplier || undefined,
+          },
+        },
+      );
       const p = r.data;
       return {
         data: (Array.isArray(p.data) ? p.data : []) as SupplierReturn[],
-        meta: (p.meta || { page: 1, totalPages: 1, total: 0, limit }) as { page: number; totalPages: number; total: number; limit: number },
+        meta: (p.meta || { page: 1, totalPages: 1, total: 0, limit }) as {
+          page: number;
+          totalPages: number;
+          total: number;
+          limit: number;
+        },
       };
     },
   });
 
   const { data: locationsRes } = useQuery({
     queryKey: ['supplier-returns', 'locations'],
-    queryFn: async () => (await apiClient.get<ApiResponse<any[]>>('/stocks/locations/get-all')).data.data,
+    queryFn: async () =>
+      (await apiClient.get<ApiResponse<any[]>>('/stocks/locations/get-all'))
+        .data.data,
   });
 
   const { data: suppliersRes } = useQuery({
     queryKey: ['supplier-returns', 'suppliers'],
-    queryFn: async () => (await apiClient.get<ApiResponse<any[]>>('/suppliers/get-all')).data.data,
+    queryFn: async () =>
+      (await apiClient.get<ApiResponse<any[]>>('/suppliers/get-all')).data.data,
   });
 
   const fetchById = async (id: string): Promise<SupplierReturn> => {
-    const r = await apiClient.get<ApiResponse<SupplierReturn>>(`/supplier-returns/get/${id}`);
+    const r = await apiClient.get<ApiResponse<SupplierReturn>>(
+      `/supplier-returns/get/${id}`,
+    );
     return r.data.data as SupplierReturn;
   };
 
   // ─── Mutations ───────────────────────────────────────────────────────────────
   const completeMutation = useMutation({
-    mutationFn: (id: string) => apiClient.patch<ApiResponse<any>>(`/supplier-returns/complete/${id}`),
+    mutationFn: (id: string) =>
+      apiClient.patch<ApiResponse<any>>(`/supplier-returns/complete/${id}`),
     onSuccess: async (res) => {
       toast.success('Supplier return completed — stock deducted');
       setCompleteTarget(null);
@@ -113,7 +161,9 @@ export default function SupplierReturnsPage() {
       queryClient.invalidateQueries({ queryKey: ['stocks'] });
       const data = (res as any).data?.data;
       if (data?.id) {
-        try { setDetailsReturn(await fetchById(data.id)); } catch {}
+        try {
+          setDetailsReturn(await fetchById(data.id));
+        } catch {}
       }
     },
     onError: (err: any) => {
@@ -123,168 +173,246 @@ export default function SupplierReturnsPage() {
   });
 
   const cancelMutation = useMutation({
-    mutationFn: (id: string) => apiClient.patch<ApiResponse<any>>(`/supplier-returns/cancel/${id}`),
+    mutationFn: (id: string) =>
+      apiClient.patch<ApiResponse<any>>(`/supplier-returns/cancel/${id}`),
     onSuccess: () => {
       toast.success('Supplier return cancelled');
       setCancelTarget(null);
       queryClient.invalidateQueries({ queryKey: ['supplier-returns'] });
     },
-    onError: (err: any) => { toast.error(err?.response?.data?.message || 'Failed to cancel'); setCancelTarget(null); },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || 'Failed to cancel');
+      setCancelTarget(null);
+    },
   });
 
   // ─── Handlers ────────────────────────────────────────────────────────────────
   const handleViewClick = async (ret: SupplierReturn) => {
     setDetailsLoading(true);
-    try { setDetailsReturn(await fetchById(ret.id)); }
-    catch { setDetailsReturn({ ...ret, items: ret.items || [] }); }
-    finally { setDetailsLoading(false); }
+    try {
+      setDetailsReturn(await fetchById(ret.id));
+    } catch {
+      setDetailsReturn({ ...ret, items: ret.items || [] });
+    } finally {
+      setDetailsLoading(false);
+    }
   };
 
   const itemsList = returnsRes?.data || [];
   const meta = returnsRes?.meta || { page: 1, totalPages: 1, total: 0, limit };
 
   return (
-    <div className="space-y-6">
-
+    <div className='p-0 lg:p-6 space-y-6'>
       {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+      <div className='flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-white p-6 rounded-xl border border-gray-100 shadow-sm'>
         <div>
-          <h1 className="text-xl font-bold text-slate-800">Supplier Returns</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Create a DRAFT, review items, then Complete to deduct stock from the location.
+          <h1 className='text-xl font-bold text-slate-800'>Supplier Returns</h1>
+          <p className='text-xs text-slate-500 mt-0.5'>
+            Create a DRAFT, review items, then Complete to deduct stock from the
+            location.
           </p>
         </div>
         <Button
           onClick={() => router.push('/inventory/supplier-returns/new')}
-          className="bg-primary hover:bg-primary/90 text-white font-medium text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 self-start md:self-auto"
+          className='bg-primary hover:bg-primary/90 text-white font-medium text-xs px-4 py-2 rounded-xl flex items-center gap-1.5 self-start md:self-auto'
         >
-          <LuPlus className="h-4 w-4" /> New Supplier Return
+          <LuPlus className='h-4 w-4' /> New Supplier Return
         </Button>
       </div>
 
       {/* ── Filters ──────────────────────────────────────────────────────────── */}
-      <Card className="p-4 border-slate-100 shadow-sm">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[200px]">
-            <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-              <LuSearch className="h-4 w-4" />
+      <Card className='p-4 border-slate-100 shadow-sm'>
+        <div className='flex flex-wrap items-center gap-3'>
+          <div className='relative flex-1 min-w-[200px]'>
+            <span className='absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400'>
+              <LuSearch className='h-4 w-4' />
             </span>
             <input
-              type="text"
-              placeholder="Search return number…"
+              type='text'
+              placeholder='Search return number…'
               value={searchTerm}
-              onChange={e => { setSearchTerm(e.target.value); setPage(1); }}
-              className="pl-9 w-full bg-[#f8fafc] border-slate-200 text-slate-800 text-sm h-10 rounded-xl outline-none border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPage(1);
+              }}
+              className='pl-9 w-full bg-[#f8fafc] border-slate-200 text-slate-800 text-sm h-10 rounded-xl outline-none border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all'
             />
           </div>
-          <select value={selectedSupplier} onChange={e => { setSelectedSupplier(e.target.value); setPage(1); }}
-            className="w-44 bg-[#f8fafc] border-slate-200 text-slate-800 text-sm h-10 rounded-xl outline-none border px-3">
-            <option value="">All Suppliers</option>
-            {suppliersRes?.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          <select
+            value={selectedSupplier}
+            onChange={(e) => {
+              setSelectedSupplier(e.target.value);
+              setPage(1);
+            }}
+            className='w-44 bg-[#f8fafc] border-slate-200 text-slate-800 text-sm h-10 rounded-xl outline-none border px-3'
+          >
+            <option value=''>All Suppliers</option>
+            {suppliersRes?.map((s: any) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
           </select>
-          <select value={selectedLocation} onChange={e => { setSelectedLocation(e.target.value); setPage(1); }}
-            className="w-44 bg-[#f8fafc] border-slate-200 text-slate-800 text-sm h-10 rounded-xl outline-none border px-3">
-            <option value="">All Locations</option>
-            {locationsRes?.map((l: any) => <option key={l.id} value={l.id}>{l.name}</option>)}
+          <select
+            value={selectedLocation}
+            onChange={(e) => {
+              setSelectedLocation(e.target.value);
+              setPage(1);
+            }}
+            className='w-44 bg-[#f8fafc] border-slate-200 text-slate-800 text-sm h-10 rounded-xl outline-none border px-3'
+          >
+            <option value=''>All Locations</option>
+            {locationsRes?.map((l: any) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+              </option>
+            ))}
           </select>
-          <select value={selectedStatus} onChange={e => { setSelectedStatus(e.target.value); setPage(1); }}
-            className="w-44 bg-[#f8fafc] border-slate-200 text-slate-800 text-sm h-10 rounded-xl outline-none border px-3">
-            <option value="">All Statuses</option>
-            <option value="DRAFT">Draft</option>
-            <option value="COMPLETED">Completed</option>
-            <option value="CANCELLED">Cancelled</option>
+          <select
+            value={selectedStatus}
+            onChange={(e) => {
+              setSelectedStatus(e.target.value);
+              setPage(1);
+            }}
+            className='w-44 bg-[#f8fafc] border-slate-200 text-slate-800 text-sm h-10 rounded-xl outline-none border px-3'
+          >
+            <option value=''>All Statuses</option>
+            <option value='DRAFT'>Draft</option>
+            <option value='COMPLETED'>Completed</option>
+            <option value='CANCELLED'>Cancelled</option>
           </select>
           {hasFilters && (
             <button
-              type="button"
-              onClick={() => { setSearchTerm(''); setSelectedSupplier(''); setSelectedLocation(''); setSelectedStatus(''); setPage(1); }}
-              className="h-10 w-10 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-500 hover:bg-red-100 hover:text-red-600 transition-colors shrink-0"
-              title="Reset filters"
+              type='button'
+              onClick={() => {
+                setSearchTerm('');
+                setSelectedSupplier('');
+                setSelectedLocation('');
+                setSelectedStatus('');
+                setPage(1);
+              }}
+              className='h-10 w-10 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center text-red-500 hover:bg-red-100 hover:text-red-600 transition-colors shrink-0'
+              title='Reset filters'
             >
-              <LuX className="h-4 w-4" />
+              <LuX className='h-4 w-4' />
             </button>
           )}
         </div>
       </Card>
 
       {/* ── Table ────────────────────────────────────────────────────────────── */}
-      <Card className="border-slate-100 shadow-sm overflow-hidden">
+      <Card className='border-slate-100 shadow-sm overflow-hidden'>
         {isLoading ? (
-          <div className="flex h-64 items-center justify-center"><Loader /></div>
+          <div className='flex h-64 items-center justify-center'>
+            <Loader />
+          </div>
         ) : itemsList.length === 0 ? (
-          <div className="p-12 text-center text-slate-500">
-            <LuTruck className="h-10 w-10 text-slate-200 mx-auto mb-2" />
-            <p className="text-sm font-medium">No supplier returns found.</p>
-            <p className="text-xs text-slate-400 mt-1">Create a return to send stock back to a supplier.</p>
+          <div className='p-12 text-center text-slate-500'>
+            <LuTruck className='h-10 w-10 text-slate-200 mx-auto mb-2' />
+            <p className='text-sm font-medium'>No supplier returns found.</p>
+            <p className='text-xs text-slate-400 mt-1'>
+              Create a return to send stock back to a supplier.
+            </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left">
+          <div className='overflow-x-auto'>
+            <table className='w-full border-collapse text-left'>
               <thead>
-                <tr className="bg-slate-100 border-b border-slate-300 text-slate-600 font-semibold text-xs uppercase">
-                  <th className="p-4">Return #</th>
-                  <th className="p-4">Supplier</th>
-                  <th className="p-4 hidden sm:table-cell">Location</th>
-                  <th className="p-4 hidden lg:table-cell">Date</th>
-                  <th className="p-4 text-right hidden md:table-cell">Total Amount</th>
-                  <th className="p-4 text-center">Status</th>
-                  <th className="p-4 w-12"></th>
+                <tr className='bg-slate-100 border-b border-slate-300 text-slate-600 font-semibold text-xs uppercase'>
+                  <th className='p-4'>Return #</th>
+                  <th className='p-4'>Supplier</th>
+                  <th className='p-4 hidden sm:table-cell'>Location</th>
+                  <th className='p-4 hidden lg:table-cell'>Date</th>
+                  <th className='p-4 text-right hidden md:table-cell'>
+                    Total Amount
+                  </th>
+                  <th className='p-4 text-center'>Status</th>
+                  <th className='p-4 w-12'></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 text-sm text-slate-700">
-                {itemsList.map(ret => (
-                  <tr key={ret.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-4 font-bold text-slate-900">{ret.returnNumber}</td>
-                    <td className="p-4 font-medium text-slate-900">{ret.supplier?.name}</td>
-                    <td className="p-4 hidden sm:table-cell text-slate-600">{ret.location?.name}</td>
-                    <td className="p-4 hidden lg:table-cell text-slate-500">
-                      {new Date(ret.returnDate || ret.createdAt).toLocaleDateString()}
+              <tbody className='divide-y divide-slate-200 text-sm text-slate-700'>
+                {itemsList.map((ret) => (
+                  <tr
+                    key={ret.id}
+                    className='hover:bg-slate-50 transition-colors'
+                  >
+                    <td className='p-4 font-bold text-slate-900'>
+                      {ret.returnNumber}
                     </td>
-                    <td className="p-4 text-right hidden md:table-cell font-semibold text-slate-900">
+                    <td className='p-4 font-medium text-slate-900'>
+                      {ret.supplier?.name}
+                    </td>
+                    <td className='p-4 hidden sm:table-cell text-slate-600'>
+                      {ret.location?.name}
+                    </td>
+                    <td className='p-4 hidden lg:table-cell text-slate-500'>
+                      {new Date(
+                        ret.returnDate || ret.createdAt,
+                      ).toLocaleDateString()}
+                    </td>
+                    <td className='p-4 text-right hidden md:table-cell font-semibold text-slate-900'>
                       ৳{(ret.totalAmount ?? 0).toFixed(2)}
                     </td>
-                    <td className="p-4 text-center">
-                      <Badge className={`font-semibold py-0.5 px-2 text-[10px] uppercase rounded-full border-0 ${statusColors[ret.status] || 'bg-slate-100 text-slate-700'}`}>
+                    <td className='p-4 text-center'>
+                      <Badge
+                        className={`font-semibold py-0.5 px-2 text-[10px] uppercase rounded-full border-0 ${statusColors[ret.status] || 'bg-slate-100 text-slate-700'}`}
+                      >
                         {ret.status}
                       </Badge>
                     </td>
-                    <td className="p-4 text-center">
+                    <td className='p-4 text-center'>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-slate-100 text-slate-500">
-                            <MoreHorizontal className="h-4 w-4" />
+                          <Button
+                            variant='ghost'
+                            size='icon'
+                            className='h-8 w-8 rounded-full hover:bg-slate-100 text-slate-500'
+                          >
+                            <MoreHorizontal className='h-4 w-4' />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48 rounded-xl border-slate-100 shadow-lg">
+                        <DropdownMenuContent
+                          align='end'
+                          className='w-48 rounded-xl border-slate-100 shadow-lg'
+                        >
                           <DropdownMenuItem
                             onClick={() => handleViewClick(ret)}
                             disabled={detailsLoading}
-                            className="flex items-center gap-2 text-slate-600 cursor-pointer"
+                            className='flex items-center gap-2 text-slate-600 cursor-pointer'
                           >
-                            {detailsLoading ? <LuRefreshCw className="h-3.5 w-3.5 animate-spin" /> : <LuEye className="h-3.5 w-3.5" />}
+                            {detailsLoading ? (
+                              <LuRefreshCw className='h-3.5 w-3.5 animate-spin' />
+                            ) : (
+                              <LuEye className='h-3.5 w-3.5' />
+                            )}
                             View Details
                           </DropdownMenuItem>
                           {ret.status === 'DRAFT' && (
                             <>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
-                                onClick={() => router.push(`/inventory/supplier-returns/edit/${ret.id}`)}
-                                className="flex items-center gap-2 text-primary focus:text-primary focus:bg-primary/5 cursor-pointer"
+                                onClick={() =>
+                                  router.push(
+                                    `/inventory/supplier-returns/edit/${ret.id}`,
+                                  )
+                                }
+                                className='flex items-center gap-2 text-primary focus:text-primary focus:bg-primary/5 cursor-pointer'
                               >
-                                <Pencil className="h-3.5 w-3.5" /> Edit
+                                <Pencil className='h-3.5 w-3.5' /> Edit
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => setCompleteTarget(ret)}
-                                className="flex items-center gap-2 text-green-600 focus:text-green-700 focus:bg-green-50 cursor-pointer"
+                                className='flex items-center gap-2 text-green-600 focus:text-green-700 focus:bg-green-50 cursor-pointer'
                               >
-                                <LuCircleCheck className="h-3.5 w-3.5" /> Complete
+                                <LuCircleCheck className='h-3.5 w-3.5' />{' '}
+                                Complete
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 onClick={() => setCancelTarget(ret)}
-                                className="flex items-center gap-2 text-red-500 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+                                className='flex items-center gap-2 text-red-500 focus:text-red-600 focus:bg-red-50 cursor-pointer'
                               >
-                                <LuCircleX className="h-3.5 w-3.5" /> Cancel
+                                <LuCircleX className='h-3.5 w-3.5' /> Cancel
                               </DropdownMenuItem>
                             </>
                           )}
@@ -295,14 +423,17 @@ export default function SupplierReturnsPage() {
                 ))}
               </tbody>
             </table>
-            <div className="p-4 border-t border-slate-100">
+            <div className='p-4 border-t border-slate-100'>
               <PaginationControl
                 currentPage={meta.page}
                 totalPages={meta.totalPages}
                 onPageChange={setPage}
                 totalItems={meta.total}
                 itemsPerPage={limit}
-                onLimitChange={newLimit => { setLimit(newLimit); setPage(1); }}
+                onLimitChange={(newLimit) => {
+                  setLimit(newLimit);
+                  setPage(1);
+                }}
               />
             </div>
           </div>
@@ -310,68 +441,111 @@ export default function SupplierReturnsPage() {
       </Card>
 
       {/* ── View Details Dialog ───────────────────────────────────────────────── */}
-      <Dialog open={!!detailsReturn} onOpenChange={o => { if (!o) setDetailsReturn(null); }}>
+      <Dialog
+        open={!!detailsReturn}
+        onOpenChange={(o) => {
+          if (!o) setDetailsReturn(null);
+        }}
+      >
         {detailsReturn && (
-          <DialogContent className="w-full max-w-[calc(100%-1rem)] sm:max-w-2xl lg:max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl sm:rounded-2xl p-0">
-            <DialogTitle className="sr-only">Supplier Return Details</DialogTitle>
-            <div className="sticky top-0 z-10 bg-white border-b border-slate-100 px-5 py-4 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                  <LuTruck className="h-4 w-4 text-primary" />
+          <DialogContent className='w-full max-w-[calc(100%-1rem)] sm:max-w-2xl lg:max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl sm:rounded-2xl p-0'>
+            <DialogTitle className='sr-only'>
+              Supplier Return Details
+            </DialogTitle>
+            <div className='sticky top-0 z-10 bg-white border-b border-slate-100 px-5 py-4 flex items-center justify-between gap-3'>
+              <div className='flex items-center gap-3'>
+                <div className='w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0'>
+                  <LuTruck className='h-4 w-4 text-primary' />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900">{detailsReturn.returnNumber}</h2>
-                  <p className="text-[11px] text-slate-400 mt-0.5">{new Date(detailsReturn.returnDate || detailsReturn.createdAt).toLocaleString()}</p>
+                  <h2 className='text-sm font-bold text-slate-900'>
+                    {detailsReturn.returnNumber}
+                  </h2>
+                  <p className='text-[11px] text-slate-400 mt-0.5'>
+                    {new Date(
+                      detailsReturn.returnDate || detailsReturn.createdAt,
+                    ).toLocaleString()}
+                  </p>
                 </div>
               </div>
-              <Badge className={`font-semibold py-0.5 px-2.5 text-[10px] uppercase rounded-full border-0 shrink-0 ${statusColors[detailsReturn.status]}`}>
+              <Badge
+                className={`font-semibold py-0.5 px-2.5 text-[10px] uppercase rounded-full border-0 shrink-0 ${statusColors[detailsReturn.status]}`}
+              >
                 {detailsReturn.status}
               </Badge>
             </div>
-            <div className="px-5 py-4 space-y-4">
-              <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
-                <div className="bg-slate-50 rounded-xl p-3">
-                  <p className="text-slate-400 font-medium uppercase tracking-wide text-[10px] mb-0.5">Supplier</p>
-                  <p className="font-semibold text-slate-900">{detailsReturn.supplier?.name}</p>
+            <div className='px-5 py-4 space-y-4'>
+              <div className='grid grid-cols-2 gap-3 text-xs sm:grid-cols-4'>
+                <div className='bg-slate-50 rounded-xl p-3'>
+                  <p className='text-slate-400 font-medium uppercase tracking-wide text-[10px] mb-0.5'>
+                    Supplier
+                  </p>
+                  <p className='font-semibold text-slate-900'>
+                    {detailsReturn.supplier?.name}
+                  </p>
                 </div>
-                <div className="bg-slate-50 rounded-xl p-3">
-                  <p className="text-slate-400 font-medium uppercase tracking-wide text-[10px] mb-0.5">Location</p>
-                  <p className="font-semibold text-slate-900">{detailsReturn.location?.name}</p>
+                <div className='bg-slate-50 rounded-xl p-3'>
+                  <p className='text-slate-400 font-medium uppercase tracking-wide text-[10px] mb-0.5'>
+                    Location
+                  </p>
+                  <p className='font-semibold text-slate-900'>
+                    {detailsReturn.location?.name}
+                  </p>
                 </div>
-                <div className="bg-slate-50 rounded-xl p-3">
-                  <p className="text-slate-400 font-medium uppercase tracking-wide text-[10px] mb-0.5">Date</p>
-                  <p className="font-semibold text-slate-900">{new Date(detailsReturn.returnDate || detailsReturn.createdAt).toLocaleDateString()}</p>
+                <div className='bg-slate-50 rounded-xl p-3'>
+                  <p className='text-slate-400 font-medium uppercase tracking-wide text-[10px] mb-0.5'>
+                    Date
+                  </p>
+                  <p className='font-semibold text-slate-900'>
+                    {new Date(
+                      detailsReturn.returnDate || detailsReturn.createdAt,
+                    ).toLocaleDateString()}
+                  </p>
                 </div>
-                <div className="bg-slate-50 rounded-xl p-3">
-                  <p className="text-slate-400 font-medium uppercase tracking-wide text-[10px] mb-0.5">Total Amount</p>
-                  <p className="font-semibold text-slate-900">৳{(detailsReturn.totalAmount ?? 0).toFixed(2)}</p>
+                <div className='bg-slate-50 rounded-xl p-3'>
+                  <p className='text-slate-400 font-medium uppercase tracking-wide text-[10px] mb-0.5'>
+                    Total Amount
+                  </p>
+                  <p className='font-semibold text-slate-900'>
+                    ৳{(detailsReturn.totalAmount ?? 0).toFixed(2)}
+                  </p>
                 </div>
               </div>
 
               {/* Items table */}
               {(detailsReturn.items?.length ?? 0) > 0 ? (
-                <div className="rounded-xl border border-slate-200 overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs min-w-[480px]">
-                      <thead className="bg-slate-50 border-b border-slate-200 font-semibold text-slate-500 uppercase">
+                <div className='rounded-xl border border-slate-200 overflow-hidden'>
+                  <div className='overflow-x-auto'>
+                    <table className='w-full text-left text-xs min-w-[480px]'>
+                      <thead className='bg-slate-50 border-b border-slate-200 font-semibold text-slate-500 uppercase'>
                         <tr>
-                          <th className="px-3 py-2.5">Product</th>
-                          <th className="px-3 py-2.5">SKU</th>
-                          <th className="px-3 py-2.5 text-center">Qty</th>
-                          <th className="px-3 py-2.5 text-right">Unit Price</th>
-                          <th className="px-3 py-2.5 text-right">Total</th>
+                          <th className='px-3 py-2.5'>Product</th>
+                          <th className='px-3 py-2.5'>SKU</th>
+                          <th className='px-3 py-2.5 text-center'>Qty</th>
+                          <th className='px-3 py-2.5 text-right'>Unit Price</th>
+                          <th className='px-3 py-2.5 text-right'>Total</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {detailsReturn.items.map(item => (
-                          <tr key={item.id} className="hover:bg-slate-50">
-                            <td className="px-3 py-2.5">
-                              <p className="font-semibold text-slate-900">{item.product?.name}</p>
+                      <tbody className='divide-y divide-slate-100'>
+                        {detailsReturn.items.map((item) => (
+                          <tr key={item.id} className='hover:bg-slate-50'>
+                            <td className='px-3 py-2.5'>
+                              <p className='font-semibold text-slate-900'>
+                                {item.product?.name}
+                              </p>
                             </td>
-                            <td className="px-3 py-2.5 font-mono text-slate-400">{item.product?.sku}</td>
-                            <td className="px-3 py-2.5 text-center font-bold text-slate-700">{item.quantity}</td>
-                            <td className="px-3 py-2.5 text-right text-slate-600">৳{(item.unitPrice ?? 0).toFixed(2)}</td>
-                            <td className="px-3 py-2.5 text-right font-bold text-slate-900">৳{(item.totalPrice ?? 0).toFixed(2)}</td>
+                            <td className='px-3 py-2.5 font-mono text-slate-400'>
+                              {item.product?.sku}
+                            </td>
+                            <td className='px-3 py-2.5 text-center font-bold text-slate-700'>
+                              {item.quantity}
+                            </td>
+                            <td className='px-3 py-2.5 text-right text-slate-600'>
+                              ৳{(item.unitPrice ?? 0).toFixed(2)}
+                            </td>
+                            <td className='px-3 py-2.5 text-right font-bold text-slate-900'>
+                              ৳{(item.totalPrice ?? 0).toFixed(2)}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -379,26 +553,44 @@ export default function SupplierReturnsPage() {
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-6 text-xs text-slate-400 bg-slate-50 rounded-xl border border-slate-200">
+                <div className='text-center py-6 text-xs text-slate-400 bg-slate-50 rounded-xl border border-slate-200'>
                   No item details available.
                 </div>
               )}
 
               {detailsReturn.notes && (
-                <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs">
-                  <p className="text-slate-400 font-medium uppercase tracking-wide text-[10px] mb-1">Notes</p>
-                  <p className="text-slate-700 whitespace-pre-wrap">{detailsReturn.notes}</p>
+                <div className='bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs'>
+                  <p className='text-slate-400 font-medium uppercase tracking-wide text-[10px] mb-1'>
+                    Notes
+                  </p>
+                  <p className='text-slate-700 whitespace-pre-wrap'>
+                    {detailsReturn.notes}
+                  </p>
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 pt-1">
+              <div className='flex justify-end gap-2 pt-1'>
                 {detailsReturn.status === 'DRAFT' && (
-                  <Button size="sm" onClick={() => { setDetailsReturn(null); setCompleteTarget(detailsReturn); }}
-                    className="bg-green-600 hover:bg-green-700 text-white text-xs h-8 px-4">
-                    <LuCircleCheck className="h-3.5 w-3.5 mr-1.5" /> Complete Return
+                  <Button
+                    size='sm'
+                    onClick={() => {
+                      setDetailsReturn(null);
+                      setCompleteTarget(detailsReturn);
+                    }}
+                    className='bg-green-600 hover:bg-green-700 text-white text-xs h-8 px-4'
+                  >
+                    <LuCircleCheck className='h-3.5 w-3.5 mr-1.5' /> Complete
+                    Return
                   </Button>
                 )}
-                <Button variant="outline" size="sm" onClick={() => setDetailsReturn(null)} className="text-xs h-8">Close</Button>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={() => setDetailsReturn(null)}
+                  className='text-xs h-8'
+                >
+                  Close
+                </Button>
               </div>
             </div>
           </DialogContent>
@@ -408,27 +600,34 @@ export default function SupplierReturnsPage() {
       {/* ── Complete Confirmation ──────────────────────────────────────────────── */}
       <DeleteModal
         open={!!completeTarget}
-        onOpenChange={o => { if (!o) setCompleteTarget(null); }}
-        title="Complete Return"
+        onOpenChange={(o) => {
+          if (!o) setCompleteTarget(null);
+        }}
+        title='Complete Return'
         description={`This will complete the return and deduct ${completeTarget?.items?.length ?? '?'} item(s) from "${completeTarget?.location?.name}" stock. This cannot be undone.`}
         loading={completeMutation.isPending}
-        onConfirm={() => { if (completeTarget) completeMutation.mutate(completeTarget.id); }}
-        confirmLabel="Complete Return"
-        cancelLabel="Go Back"
+        onConfirm={() => {
+          if (completeTarget) completeMutation.mutate(completeTarget.id);
+        }}
+        confirmLabel='Complete Return'
+        cancelLabel='Go Back'
       />
 
       {/* ── Cancel Confirmation ───────────────────────────────────────────────── */}
       <DeleteModal
         open={!!cancelTarget}
-        onOpenChange={o => { if (!o) setCancelTarget(null); }}
-        title="Cancel Return"
-        description="This will cancel the draft supplier return. No stock changes will be made. This action cannot be undone."
+        onOpenChange={(o) => {
+          if (!o) setCancelTarget(null);
+        }}
+        title='Cancel Return'
+        description='This will cancel the draft supplier return. No stock changes will be made. This action cannot be undone.'
         loading={cancelMutation.isPending}
-        onConfirm={() => { if (cancelTarget) cancelMutation.mutate(cancelTarget.id); }}
-        confirmLabel="Cancel Return"
-        cancelLabel="Go Back"
+        onConfirm={() => {
+          if (cancelTarget) cancelMutation.mutate(cancelTarget.id);
+        }}
+        confirmLabel='Cancel Return'
+        cancelLabel='Go Back'
       />
-
     </div>
   );
 }

@@ -3,12 +3,12 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
-} from "@tanstack/react-query";
-import { apiClient } from "@/lib/api";
-import { PosRoutes } from "@/routes/pos.route";
-import { ProductRoutes } from "@/routes/product.route";
-import type { ApiResponse } from "@/types/auth";
-import { toast } from "react-hot-toast";
+} from '@tanstack/react-query';
+import { apiClient } from '@/lib/api';
+import { PosRoutes } from '@/routes/pos.route';
+import { ProductRoutes } from '@/routes/product.route';
+import type { ApiResponse } from '@/types/auth';
+import { toast } from 'react-hot-toast';
 
 /* ──────────────────────────── types ──────────────────────────── */
 
@@ -45,7 +45,7 @@ export interface PosProduct {
 export interface PosPayment {
   id?: string;
   amount: number;
-  paymentMethod: "CASH" | "BANKCARD" | "BKASH" | "NAGAD" | "ROCKET";
+  paymentMethod: 'CASH' | 'BANKCARD' | 'BKASH' | 'NAGAD' | 'ROCKET';
   bankId?: string | null;
   bank?: {
     id: string;
@@ -59,9 +59,11 @@ export interface PosPayment {
 export interface PosBillSummary {
   id: string;
   invoiceNumber: string;
+  customerName?: string | null;
+  customerPhone?: string | null;
   totalQuantity: number;
   totalAmount: number;
-  paymentStatus?: "PAID" | "PENDING" | "DUE";
+  paymentStatus?: 'PAID' | 'PENDING' | 'DUE';
   payments?: PosPayment[];
   globalPayments?: PosPayment[];
   createdAt: string;
@@ -118,8 +120,10 @@ export interface PosBillDetail {
   taxPercent?: number | null;
   createdAt: string;
   updatedAt: string;
-  paymentStatus?: "PAID" | "PENDING" | "DUE";
-  orderDiscountType?: "PERCENTAGE_DISCOUNT" | "FLAT_DISCOUNT" | "NONE" | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  paymentStatus?: 'PAID' | 'PENDING' | 'DUE';
+  orderDiscountType?: 'PERCENTAGE_DISCOUNT' | 'FLAT_DISCOUNT' | 'NONE' | null;
   orderDiscountValue?: number | null;
   totalPaid?: number;
   dueAmount?: number;
@@ -140,7 +144,9 @@ export interface CreateBillProductLine {
 
 export interface CreatePosBillPayload {
   storeId?: string;
-  discountType?: "PERCENTAGE_DISCOUNT" | "FLAT_DISCOUNT" | "NONE";
+  customerName?: string;
+  customerPhone?: string;
+  discountType?: 'PERCENTAGE_DISCOUNT' | 'FLAT_DISCOUNT' | 'NONE';
   discountValue?: number;
   tax?: number;
   products: CreateBillProductLine[];
@@ -157,7 +163,7 @@ export interface PosBillListMeta {
 /* ──────────────────────────── helpers ──────────────────────────── */
 
 const toNumber = (value: unknown, fallback: number) =>
-  typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 
 const normalizeMeta = (
   meta: Record<string, unknown>,
@@ -184,22 +190,31 @@ const ensurePayload = <T>(
 /* ──────────────────────────── query keys ──────────────────────────── */
 
 export const posKeys = {
-  all: ["pos"] as const,
+  all: ['pos'] as const,
   products: (searchTerm?: string, storeId?: string) =>
-    [...posKeys.all, "products", searchTerm, storeId] as const,
-  bills: (page: number, limit: number, searchTerm?: string, paymentStatus?: string) =>
-    [...posKeys.all, "bills", page, limit, searchTerm, paymentStatus] as const,
-  bill: (orderId: string) => [...posKeys.all, "bill", orderId] as const,
+    [...posKeys.all, 'products', searchTerm, storeId] as const,
+  bills: (
+    page: number,
+    limit: number,
+    searchTerm?: string,
+    paymentStatus?: string,
+  ) =>
+    [...posKeys.all, 'bills', page, limit, searchTerm, paymentStatus] as const,
+  bill: (orderId: string) => [...posKeys.all, 'bill', orderId] as const,
+  report: (query: Record<string, any>) =>
+    [...posKeys.all, 'report', query] as const,
 };
 
 /* ──────────────────────────── hooks ──────────────────────────── */
 
-export const fetchProductByBarcode = async (barcodeId: string): Promise<PosProduct> => {
-  const cleanId = String(barcodeId).replace(/\s/g, "").trim();
+export const fetchProductByBarcode = async (
+  barcodeId: string,
+): Promise<PosProduct> => {
+  const cleanId = String(barcodeId).replace(/\s/g, '').trim();
   const response = await apiClient.get<ApiResponse<PosProduct>>(
     ProductRoutes.getByBarcode(cleanId),
   );
-  return ensurePayload(response.data, "Product not found for this barcode");
+  return ensurePayload(response.data, 'Product not found for this barcode');
 };
 
 export const usePosProducts = (searchTerm?: string, storeId?: string) => {
@@ -213,7 +228,7 @@ export const usePosProducts = (searchTerm?: string, storeId?: string) => {
         PosRoutes.getProducts,
         { params },
       );
-      return ensurePayload(response.data, "Failed to load products");
+      return ensurePayload(response.data, 'Failed to load products');
     },
     placeholderData: keepPreviousData,
   });
@@ -223,7 +238,7 @@ export const usePosBills = (
   page: number,
   limit = 10,
   searchTerm?: string,
-  paymentStatus?: "PAID" | "PENDING" | "DUE"
+  paymentStatus?: 'PAID' | 'PENDING' | 'DUE',
 ) => {
   return useQuery<{ data: PosBillSummary[]; meta: PosBillListMeta }>({
     queryKey: posKeys.bills(page, limit, searchTerm, paymentStatus),
@@ -235,7 +250,7 @@ export const usePosBills = (
         PosRoutes.getBills,
         { params },
       );
-      const bills = ensurePayload(response.data, "Failed to load bills");
+      const bills = ensurePayload(response.data, 'Failed to load bills');
       const meta = normalizeMeta(response.data.meta, page, limit, bills.length);
       return { data: bills, meta };
     },
@@ -247,7 +262,7 @@ export const fetchPosBill = async (orderId: string) => {
   const response = await apiClient.get<ApiResponse<PosBillDetail>>(
     PosRoutes.getBill(orderId),
   );
-  return ensurePayload(response.data, "Failed to load bill");
+  return ensurePayload(response.data, 'Failed to load bill');
 };
 
 export const usePosBill = (orderId: string) => {
@@ -257,7 +272,7 @@ export const usePosBill = (orderId: string) => {
       const response = await apiClient.get<ApiResponse<PosBillDetail>>(
         PosRoutes.getBill(orderId),
       );
-      return ensurePayload(response.data, "Failed to load bill");
+      return ensurePayload(response.data, 'Failed to load bill');
     },
     enabled: !!orderId,
   });
@@ -271,15 +286,15 @@ export const useCreatePosBill = () => {
         PosRoutes.createBill,
         payload,
       );
-      return ensurePayload(response.data, "Failed to create bill");
+      return ensurePayload(response.data, 'Failed to create bill');
     },
     onSuccess: (_data, _vars) => {
-      toast.success("POS bill created successfully");
+      toast.success('POS bill created successfully');
       queryClient.invalidateQueries({ queryKey: posKeys.all });
     },
     onError: (err: any) => {
       const message =
-        err?.response?.data?.message || err?.message || "Failed to create bill";
+        err?.response?.data?.message || err?.message || 'Failed to create bill';
       toast.error(message);
     },
   });
@@ -297,15 +312,15 @@ export const useUpdatePosBill = () => {
         PosRoutes.updateBill(orderId),
         payload,
       );
-      return ensurePayload(response.data, "Failed to update bill");
+      return ensurePayload(response.data, 'Failed to update bill');
     },
     onSuccess: () => {
-      toast.success("POS bill updated successfully");
+      toast.success('POS bill updated successfully');
       queryClient.invalidateQueries({ queryKey: posKeys.all });
     },
     onError: (err: any) => {
       const message =
-        err?.response?.data?.message || err?.message || "Failed to update bill";
+        err?.response?.data?.message || err?.message || 'Failed to update bill';
       toast.error(message);
     },
   });
@@ -322,15 +337,15 @@ export const useDeletePosBill = () => {
       const response = await apiClient.delete<
         ApiResponse<{ id: string; invoiceNumber: string; deletedAt: string }>
       >(PosRoutes.deleteBill(orderId));
-      return ensurePayload(response.data, "Failed to delete bill");
+      return ensurePayload(response.data, 'Failed to delete bill');
     },
     onSuccess: () => {
-      toast.success("POS bill deleted successfully");
+      toast.success('POS bill deleted successfully');
       queryClient.invalidateQueries({ queryKey: posKeys.all });
     },
     onError: (err: any) => {
       const message =
-        err?.response?.data?.message || err?.message || "Failed to delete bill";
+        err?.response?.data?.message || err?.message || 'Failed to delete bill';
       toast.error(message);
     },
   });
@@ -338,11 +353,7 @@ export const useDeletePosBill = () => {
 
 export const useAddPosPayment = () => {
   const queryClient = useQueryClient();
-  return useMutation<
-    any,
-    Error,
-    { orderId: string; payments: PosPayment[] }
-  >({
+  return useMutation<any, Error, { orderId: string; payments: PosPayment[] }>({
     mutationFn: async ({ orderId, payments }) => {
       const response = await apiClient.post<ApiResponse<any>>(
         PosRoutes.addPayment(orderId),
@@ -351,12 +362,12 @@ export const useAddPosPayment = () => {
       return response.data;
     },
     onSuccess: () => {
-      toast.success("Payments added to processing queue");
+      toast.success('Payments added to processing queue');
       queryClient.invalidateQueries({ queryKey: posKeys.all });
     },
     onError: (err: any) => {
       const message =
-        err?.response?.data?.message || err?.message || "Failed to add payment";
+        err?.response?.data?.message || err?.message || 'Failed to add payment';
       toast.error(message);
     },
   });
@@ -372,13 +383,90 @@ export const useDeletePosPayment = () => {
       return response.data;
     },
     onSuccess: () => {
-      toast.success("Payment deleted successfully");
+      toast.success('Payment deleted successfully');
       queryClient.invalidateQueries({ queryKey: posKeys.all });
     },
     onError: (err: any) => {
       const message =
-        err?.response?.data?.message || err?.message || "Failed to delete payment";
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to delete payment';
       toast.error(message);
+    },
+  });
+};
+
+export type PosReportQuery = {
+  startDate?: string;
+  endDate?: string;
+  month?: string;
+  year?: string;
+  storeId?: string;
+  paymentStatus?: string;
+};
+
+export type PosReport = {
+  summary: {
+    totalOrders: number;
+    totalRevenue: number;
+    totalPaid: number;
+    totalDue: number;
+    totalTax: number;
+    totalDiscount: number;
+    totalQuantity: number;
+    averageOrderValue: number;
+  };
+  paymentBreakdown: { method: string; amount: number }[];
+  paymentStatusDistribution: { paid: number; due: number; pending: number };
+  timelineChart: { name: string; revenue: number; orders: number }[];
+  categoryPie: { name: string; value: number; fill: string }[];
+  topSellingProducts: {
+    rank: number;
+    productId: string;
+    name: string;
+    qty: number;
+    revenue: number;
+  }[];
+  topCustomers: {
+    userId: string;
+    email: string;
+    name: string | null;
+    orderCount: number;
+    totalSpent: number;
+  }[];
+  periodicBreakdown: {
+    period: string;
+    orders: number;
+    revenue: number;
+    orderDetails: {
+      orderId: string;
+      orderNumber: string;
+      total: number;
+      paidAmount: number;
+      paymentStatus: string;
+      storeName: string;
+      createdAt: string;
+      items: {
+        productName: string;
+        barcode: string;
+        price: number;
+        quantity: number;
+        total: number;
+      }[];
+    }[];
+  }[];
+  dateRange: { startDate: string; endDate: string };
+};
+
+export const usePosReport = (query: PosReportQuery) => {
+  return useQuery<ApiResponse<PosReport>>({
+    queryKey: posKeys.report(query),
+    queryFn: async () => {
+      const response = await apiClient.get<ApiResponse<PosReport>>(
+        PosRoutes.report,
+        { params: query },
+      );
+      return response.data;
     },
   });
 };

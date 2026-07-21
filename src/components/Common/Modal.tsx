@@ -1,5 +1,5 @@
-"use client";
-import React from "react";
+'use client';
+import React from 'react';
 import {
   Dialog,
   DialogContent,
@@ -7,7 +7,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 
 interface Props {
   open: boolean;
@@ -19,15 +19,25 @@ interface Props {
   className?: string;
 }
 
-export default function Modal({ open, onOpenChange, title, description, footer, children, className = "" }: Props) {
+export default function Modal({
+  open,
+  onOpenChange,
+  title,
+  description,
+  footer,
+  children,
+  className = '',
+}: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={`max-w-3xl bg-card text-card-foreground ${className}`}>
+      <DialogContent
+        className={`max-w-3xl bg-card text-card-foreground flex flex-col max-h-[90vh] ${className}`}
+      >
         <DialogHeader>
           {title && <DialogTitle>{title}</DialogTitle>}
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
-        <div className="py-2">{children}</div>
+        <div className='overflow-y-auto max-h-[65vh] py-2'>{children}</div>
         {footer && <DialogFooter>{footer}</DialogFooter>}
       </DialogContent>
     </Dialog>

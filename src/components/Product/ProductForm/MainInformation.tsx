@@ -1,10 +1,10 @@
-import React from "react";
-import { Control } from "react-hook-form";
+import React from 'react';
+import { Control } from 'react-hook-form';
 
-import CustomInput from "../../FormFields/CustomInput";
-import CustomRichTextEditor from "../../Common/CustomRichTextEditor";
-import CustomSelect from "../../FormFields/CustomSelect";
-import CustomTextArea from "../../FormFields/CustomTextArea";
+import CustomInput from '../../FormFields/CustomInput';
+import CustomRichTextEditor from '../../Common/CustomRichTextEditor';
+import CustomSelect from '../../FormFields/CustomSelect';
+import CustomTextArea from '../../FormFields/CustomTextArea';
 
 export interface BrandOption {
   label: string;
@@ -37,45 +37,55 @@ const MainInformation: React.FC<MainInformationProps> = ({
   onEditorProcessingChange,
 }) => {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white px-6 py-6 shadow-sm">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-slate-900">{isEditMode ? 'Edit Product' : 'Create Product'}</h1>
-        <p className="text-sm text-slate-500">
+    <div className='lg:rounded-2xl border border-slate-200 bg-white px-6 py-6 shadow-sm'>
+      <div className='flex flex-col gap-1'>
+        <h1 className='text-2xl font-semibold text-slate-900'>
+          {isEditMode ? 'Edit Product' : 'Create Product'}
+        </h1>
+        <p className='text-sm text-slate-500'>
           Capture the primary details your team needs to launch the item.
         </p>
       </div>
 
-      <div className="mt-6 space-y-6">
-        <div className="grid gap-4 md:grid-cols-2">
+      <div className='mt-6 space-y-6'>
+        <div className='grid gap-4 md:grid-cols-2'>
           <CustomInput
-            label="Product Name"
+            label='Product Name'
             value={productName}
-            onChange={(event: React.ChangeEvent<HTMLInputElement>) => setProductName(event.target.value)}
+            onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+              setProductName(event.target.value)
+            }
             requiredMark
           />
           <CustomSelect
-            name="brand"
+            name='brand'
             control={control}
-            label="Product Brand"
+            label='Product Brand'
             options={brandOptions}
             clearable
-            placeholder="Select a brand (optional)"
+            placeholder='Select a brand (optional)'
           />
         </div>
 
         <CustomTextArea
-          label="Short Description"
+          label='Short Description'
           value={shortDescription}
-          onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) => setShortDescription(event.target.value)}
-          className="min-h-35"
+          onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) =>
+            setShortDescription(event.target.value)
+          }
+          className='min-h-35'
         />
 
-        <div className="space-y-3">
-          <div className="text-sm font-semibold text-slate-700">
+        <div className='space-y-3'>
+          <div className='text-sm font-semibold text-slate-700'>
             Description
-            <span className="ml-1 text-destructive">*</span>
+            <span className='ml-1 text-destructive'>*</span>
           </div>
-          <CustomRichTextEditor value={description} onChange={setDescription} onProcessingChange={onEditorProcessingChange} />
+          <CustomRichTextEditor
+            value={description}
+            onChange={setDescription}
+            onProcessingChange={onEditorProcessingChange}
+          />
         </div>
       </div>
     </div>
