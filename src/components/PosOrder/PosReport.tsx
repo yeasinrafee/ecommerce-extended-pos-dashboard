@@ -180,14 +180,21 @@ function generatePDF(report: PosReport, selStart: string, selEnd: string) {
         `Items Sold: ${report.summary.totalQuantity}`,
         `Avg Order: BDT ${sf(report.summary.averageOrderValue)}`,
       ],
-      [
-        `Total Discount: BDT ${sf(report.summary.totalDiscount)}`,
-        `Payment Methods: ${report.paymentBreakdown.map((p) => `${p.method}: BDT ${sf(p.amount)}`).join(', ')}`,
-      ],
+      [`Total Discount: BDT ${sf(report.summary.totalDiscount)}`, ''],
     ];
     for (const row of items) {
       doc.text(row[0], margin, y);
       doc.text(row[1], margin + contentW / 2, y);
+      y += 4;
+    }
+    // Payment Methods - each on its own line to avoid overflow
+    y += 2;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Payment Methods:', margin, y);
+    y += 4;
+    doc.setFont('helvetica', 'normal');
+    for (const p of report.paymentBreakdown) {
+      doc.text(`${p.method}: BDT ${sf(p.amount)}`, margin, y);
       y += 4;
     }
     doc.setDrawColor(200);
@@ -218,7 +225,15 @@ function generatePDF(report: PosReport, selStart: string, selEnd: string) {
       // Order header
       doc.setFontSize(8);
       doc.setFont('helvetica', 'bold');
-      const orderLine = `Order: ${order.orderNumber} | ${order.storeName} | ${order.paymentStatus} | BDT ${order.total.toFixed(2)}`;
+      const paymentStr =
+        order.payments
+          ?.map((p: any) => {
+            let s = p.method;
+            if (p.bankName) s += ` (${p.bankName})`;
+            return s;
+          })
+          .join(' + ') || order.paymentStatus;
+      const orderLine = `Order: ${order.orderNumber} | ${order.storeName} | ${order.paymentStatus} | ${paymentStr} | BDT ${order.total.toFixed(2)}`;
       doc.text(orderLine, margin, y);
       y += 4;
 
@@ -302,6 +317,8 @@ function generateExcel(report: PosReport, selStart: string, selEnd: string) {
       'Order #',
       'Store',
       'Status',
+      'Payment Method',
+      'Bank',
       'Product',
       'Barcode',
       'Price',
@@ -311,12 +328,21 @@ function generateExcel(report: PosReport, selStart: string, selEnd: string) {
   ];
   for (const period of report.periodicBreakdown) {
     for (const order of period.orderDetails) {
+      const paymentStr =
+        order.payments
+          ?.map((p) => p.method + (p.bankName ? ` (${p.bankName})` : ''))
+          .join(' + ') || '';
       for (const item of order.items) {
         periodicRows.push([
           period.period,
           order.orderNumber,
           order.storeName,
           order.paymentStatus,
+          paymentStr,
+          order.payments
+            ?.map((p) => p.bankName || '')
+            .filter(Boolean)
+            .join(', ') || '',
           item.productName,
           item.barcode,
           String(item.price ?? ''),
@@ -446,26 +472,30 @@ const PosReport: React.FC = () => {
 
       {/* ── Filters ── */}
       <Card className='p-3 sm:p-4 border border-gray-200 rounded-xl sm:rounded-2xl shadow-sm'>
-        <div className='grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3'>
-          <CustomDatePicker
-            label='Start Date'
-            value={startDate}
-            max={endDate || undefined}
-            onChange={(d) => {
-              setStartDate(d);
-              if (d && endDate && d > endDate) setEndDate(d);
-            }}
-          />
-          <CustomDatePicker
-            label='End Date'
-            value={endDate}
-            min={startDate || undefined}
-            onChange={(d) => {
-              setEndDate(d);
-              if (d && startDate && d < startDate) setStartDate(d);
-            }}
-          />
-          <div>
+        <div className='flex flex-col sm:flex-row gap-3'>
+          <div className='flex-1'>
+            <CustomDatePicker
+              label='Start Date'
+              value={startDate}
+              max={endDate || undefined}
+              onChange={(d) => {
+                setStartDate(d);
+                if (d && endDate && d > endDate) setEndDate(d);
+              }}
+            />
+          </div>
+          <div className='flex-1'>
+            <CustomDatePicker
+              label='End Date'
+              value={endDate}
+              min={startDate || undefined}
+              onChange={(d) => {
+                setEndDate(d);
+                if (d && startDate && d < startDate) setStartDate(d);
+              }}
+            />
+          </div>
+          <div className='flex-1'>
             <label className='block text-[11px] font-medium text-gray-500 mb-1'>
               Store
             </label>
@@ -482,7 +512,7 @@ const PosReport: React.FC = () => {
               ))}
             </select>
           </div>
-          <div>
+          <div className='flex-1'>
             <label className='block text-[11px] font-medium text-gray-500 mb-1'>
               Payment Status
             </label>
@@ -732,7 +762,7 @@ const PosReport: React.FC = () => {
                                 >
                                   {/* Order header */}
                                   <div className='flex flex-wrap items-center justify-between bg-gray-100/80 px-3 py-2 border-b border-gray-200 gap-1'>
-                                    <div className='flex items-center gap-2 text-[11px] sm:text-xs text-gray-600'>
+                                    <div className='flex flex-wrap items-center gap-2 text-[11px] sm:text-xs text-gray-600'>
                                       <span className='font-bold text-gray-800'>
                                         #{order.orderNumber}
                                       </span>
@@ -751,6 +781,30 @@ const PosReport: React.FC = () => {
                                       >
                                         {order.paymentStatus}
                                       </span>
+                                    </div>
+                                    <div className='flex flex-wrap items-center gap-2 text-[10px] sm:text-xs text-gray-500'>
+                                      {order.payments?.map((pmt, pi) => (
+                                        <span
+                                          key={pi}
+                                          className='inline-flex items-center gap-1'
+                                        >
+                                          <span className='font-medium text-gray-700'>
+                                            {pmt.method}
+                                          </span>
+                                          {pmt.bankName && (
+                                            <span className='text-gray-400'>
+                                              ({pmt.bankName})
+                                            </span>
+                                          )}
+                                          {pi <
+                                            (order.payments?.length || 0) -
+                                              1 && (
+                                            <span className='text-gray-300'>
+                                              +
+                                            </span>
+                                          )}
+                                        </span>
+                                      ))}
                                     </div>
                                     <div className='text-xs font-bold text-gray-800'>
                                       Total: {fmt(order.total)} BDT

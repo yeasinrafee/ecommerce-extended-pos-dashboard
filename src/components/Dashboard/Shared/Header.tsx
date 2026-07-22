@@ -149,7 +149,7 @@ const Header = ({
           variant='ghost'
           size='icon'
           onClick={onMenuClick}
-          className='2xl:hidden'
+          className='xl:hidden'
         >
           <Menu className='h-5 w-5' />
         </Button>
@@ -159,7 +159,7 @@ const Header = ({
           size='sm'
           onClick={toggleCollapse}
           className={cn(
-            'h-8 w-8 bg-gray-100 text-slate-700 p-0 hidden 2xl:flex cursor-pointer',
+            'h-8 w-8 bg-gray-100 text-slate-700 p-0 hidden xl:flex cursor-pointer',
             collapsed ? 'rotate-180' : '',
           )}
         >
@@ -193,10 +193,10 @@ const Header = ({
         <Link
           href='/dashboard/pos-order/create'
           className={cn(
-            'flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors',
+            'flex items-center gap-1.5 px-3 py-2 border text-xs font-semibold rounded-lg transition-all duration-200',
             pathname === '/dashboard/pos-order/create'
-              ? 'bg-primary/10 text-primary'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-800',
+              ? 'bg-blue-600 text-white border-blue-600'
+              : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:text-blue-800 hover:border-blue-300',
           )}
         >
           <ShoppingCart className='size-4' />
@@ -205,17 +205,18 @@ const Header = ({
         <Link
           href='/dashboard/pos-order/manage'
           className={cn(
-            'flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors',
+            'flex items-center gap-1.5 px-3 py-2 border text-xs font-semibold rounded-lg transition-all duration-200',
             pathname === '/dashboard/pos-order/manage'
-              ? 'bg-primary/10 text-primary'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-800',
+              ? 'bg-emerald-600 text-white border-emerald-600'
+              : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 hover:text-emerald-800 hover:border-emerald-300',
           )}
         >
           <ClipboardList className='size-4' />
           <span className='hidden sm:inline'>Manage POS</span>
         </Link>
 
-        <DropdownMenu onOpenChange={handleNotificationOpen}>
+        {/* Notification Bell */}
+        {/* <DropdownMenu onOpenChange={handleNotificationOpen}>
           <DropdownMenuTrigger asChild>
             <Button
               variant='ghost'
@@ -265,7 +266,7 @@ const Header = ({
               </div>
             )}
           </DropdownMenuContent>
-        </DropdownMenu>
+        </DropdownMenu> */}
 
         {/* Theme Toggle */}
         {/* <Button
@@ -287,13 +288,14 @@ const Header = ({
             <Button
               variant='ghost'
               size='icon'
-              className='rounded-full cursor-pointer'
+              className='rounded-full cursor-pointer overflow-hidden p-0 h-10 w-10'
               suppressHydrationWarning
             >
               <Avatar className='h-10 w-10'>
                 <AvatarImage
                   src={mounted ? user?.image || undefined : undefined}
                   alt={user?.name ?? 'user'}
+                  className='object-cover'
                 />
                 <AvatarFallback>
                   <InitialsAvatar

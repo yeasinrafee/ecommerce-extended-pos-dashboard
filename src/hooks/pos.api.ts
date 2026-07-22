@@ -446,6 +446,11 @@ export type PosReport = {
       paymentStatus: string;
       storeName: string;
       createdAt: string;
+      payments: {
+        method: string;
+        amount: number;
+        bankName: string | null;
+      }[];
       items: {
         productName: string;
         barcode: string;

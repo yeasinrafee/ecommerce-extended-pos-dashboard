@@ -38,6 +38,7 @@ import {
 } from '@/hooks/pos.api';
 import { useAllStores } from '@/hooks/store.api';
 import { PaymentModal } from './PaymentModal';
+import { useSidebarContext } from '@/components/Dashboard/Shared/Sidebar';
 
 /* ─────────── barcode scanner hook ─────────── */
 
@@ -596,6 +597,11 @@ const CreatePosOrder: React.FC = () => {
       .filter(([, item]) => item.productId === productId)
       .reduce((sum, [, item]) => sum + item.quantity, 0);
 
+  const { collapsed: sidebarCollapsed } = useSidebarContext();
+  const gridClass = sidebarCollapsed
+    ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5'
+    : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4';
+
   /* ━━━━━━━━━━━━━━━━━ RENDER ━━━━━━━━━━━━━━━━━ */
 
   return (
@@ -740,9 +746,9 @@ const CreatePosOrder: React.FC = () => {
         </div>
 
         {/* Product grid */}
-        <div className='flex-1 overflow-y-auto p-3 sm:p-4 lg:p-4 xl:p-5 pb-24 lg:pb-5'>
+        <div className='flex-1 overflow-y-auto p-3 sm:p-4 lg:p-4 xl:p-5 pb-24 md:pb-24 lg:pb-5'>
           {productsLoading ? (
-            <div className='grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4'>
+            <div className={`grid ${gridClass} gap-2.5 sm:gap-3`}>
               {Array.from({ length: 12 }).map((_, i) => (
                 <div
                   key={i}
@@ -761,25 +767,34 @@ const CreatePosOrder: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className='grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4'>
+            <div className={`grid ${gridClass} gap-2.5 sm:gap-3`}>
               {filteredProducts.map((product) => {
                 const hasVariations = product.productVariations.length > 0;
                 const inCart = isProductInCart(product.id);
                 const cartQty = getProductCartQty(product.id);
                 const isActive = variantPickerProduct?.id === product.id;
                 const pricing = getProductPricing(product);
+                const stockFull =
+                  !hasVariations &&
+                  cartQty >= product.stock &&
+                  product.stock > 0;
+                const isDisabled = stockFull || product.stock === 0;
 
                 return (
                   <div
                     key={product.id}
-                    onClick={() => handleProductClick(product)}
+                    onClick={() => {
+                      if (!isDisabled) handleProductClick(product);
+                    }}
                     className={cn(
-                      'group flex flex-col rounded-lg border overflow-hidden cursor-pointer transition-all',
-                      isActive
-                        ? 'border-primary ring-2 ring-primary/40 shadow-md bg-white'
-                        : inCart
-                          ? 'border-primary/30 ring-1 ring-primary/20 shadow-sm hover:shadow-md bg-white'
-                          : 'border-gray-200 shadow-sm hover:border-gray-300 hover:shadow-md bg-white',
+                      'group flex flex-col rounded-lg border overflow-hidden transition-all',
+                      isDisabled
+                        ? 'cursor-not-allowed opacity-60 border-gray-200 bg-gray-100'
+                        : isActive
+                          ? 'cursor-pointer border-primary ring-2 ring-primary/40 shadow-md bg-white'
+                          : inCart
+                            ? 'cursor-pointer border-primary/30 ring-1 ring-primary/20 shadow-sm hover:shadow-md bg-white'
+                            : 'cursor-pointer border-gray-200 shadow-sm hover:border-gray-300 hover:shadow-md bg-white',
                     )}
                   >
                     {/* Image area */}
@@ -789,13 +804,13 @@ const CreatePosOrder: React.FC = () => {
                         inCart ? 'bg-primary/5' : 'bg-gray-50',
                       )}
                     >
-                      <div className='relative w-full aspect-4/3 rounded-md overflow-hidden'>
+                      <div className='relative w-full aspect-3/2 rounded-md overflow-hidden'>
                         {product.image ? (
                           <Image
                             src={product.image}
                             alt={product.name}
                             fill
-                            className='object-cover'
+                            className='object-contain p-2'
                           />
                         ) : (
                           <div className='flex items-center justify-center h-full bg-gray-100 rounded-md'>
@@ -807,7 +822,7 @@ const CreatePosOrder: React.FC = () => {
                         {product.stock > 0 ? (
                           <span
                             className={cn(
-                              'absolute top-1.5 right-1.5 text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shadow-sm',
+                              'absolute top-1.5 right-1.5 text-[10px] sm:text-[11px] font-bold px-2.5 py-1.5 rounded-full leading-none shadow-sm',
                               product.stock <= 5
                                 ? 'bg-rose-500 text-white'
                                 : 'bg-emerald-500 text-white',
@@ -816,15 +831,15 @@ const CreatePosOrder: React.FC = () => {
                             {product.stock} In Stock
                           </span>
                         ) : (
-                          <span className='absolute top-1.5 right-1.5 text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none shadow-sm bg-gray-500 text-white'>
+                          <span className='absolute top-1.5 right-1.5 text-[10px] sm:text-[11px] font-bold px-2.5 py-1.5 rounded-full leading-none shadow-sm bg-gray-500 text-white'>
                             Out of Stock
                           </span>
                         )}
 
                         {/* In-cart badge — top left */}
                         {inCart && (
-                          <div className='absolute top-1.5 left-1.5 bg-primary text-white px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold rounded-full flex items-center gap-0.5 leading-none shadow-sm'>
-                            <Check className='size-2.5' /> {cartQty}
+                          <div className='absolute top-1.5 left-1.5 bg-primary text-white px-2.5 py-1.5 text-[10px] sm:text-[11px] font-bold rounded-full flex items-center justify-center leading-none shadow-sm'>
+                            {cartQty}
                           </div>
                         )}
                       </div>
@@ -842,20 +857,20 @@ const CreatePosOrder: React.FC = () => {
                       </p>
                       <h3
                         className={cn(
-                          'text-xs sm:text-sm font-bold leading-snug line-clamp-2 flex-1',
-                          inCart ? 'text-primary' : 'text-gray-900',
+                          'text-[11px] sm:text-[13px] font-bold leading-snug flex-1',
+                          'text-gray-900',
                         )}
                       >
                         {product.name}
                       </h3>
 
                       <div className='flex items-center justify-between mt-1.5'>
-                        <div className='flex flex-col min-w-0'>
-                          <span className='text-sm sm:text-base font-bold text-primary leading-none'>
+                        <div className='flex items-baseline gap-1.5 min-w-0 flex-wrap'>
+                          <span className='text-base sm:text-lg xl:text-base 2xl:text-xl font-bold text-primary leading-none'>
                             ৳{pricing.final.toFixed(2)}
                           </span>
                           {pricing.final < pricing.base && (
-                            <span className='text-[10px] text-gray-400 line-through leading-none mt-0.5'>
+                            <span className='text-[11px] sm:text-xs text-gray-400 line-through leading-none'>
                               ৳{pricing.base.toFixed(2)}
                             </span>
                           )}
@@ -865,26 +880,7 @@ const CreatePosOrder: React.FC = () => {
                           <span className='text-[9px] sm:text-[10px] font-bold text-primary bg-primary/5 border border-primary/20 px-1.5 py-0.5 rounded-full uppercase shrink-0 ml-1'>
                             {product.productVariations.length} opts
                           </span>
-                        ) : (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleProductClick(product);
-                            }}
-                            className={cn(
-                              'size-6 sm:size-7 rounded-md flex items-center justify-center transition-colors shrink-0 ml-1',
-                              inCart
-                                ? 'bg-primary text-white hover:bg-primary/90'
-                                : 'bg-primary/5 text-primary hover:bg-primary/10',
-                            )}
-                          >
-                            {inCart ? (
-                              <Check className='size-3 sm:size-3.5' />
-                            ) : (
-                              <Plus className='size-3 sm:size-3.5' />
-                            )}
-                          </button>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   </div>
@@ -897,20 +893,20 @@ const CreatePosOrder: React.FC = () => {
 
       {/* Mobile Cart Floating Bar */}
       {!isCartOpen && !variantPickerProduct && (
-        <div className='lg:hidden absolute bottom-0 left-0 right-0 bg-white border-t border-gray-300 p-4 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-40 flex items-center justify-between'>
+        <div className='lg:hidden absolute bottom-0 left-0 right-0 bg-white border-t border-gray-300 px-3 py-2.5 shadow-[0_-4px_10px_rgba(0,0,0,0.05)] z-40 flex items-center justify-between'>
           <div>
-            <p className='text-sm font-bold text-gray-900'>
+            <p className='text-xs font-bold text-gray-900'>
               {cartItems.length} {cartItems.length === 1 ? 'Item' : 'Items'}
             </p>
-            <p className='text-lg font-bold text-primary'>
+            <p className='text-base font-bold text-primary'>
               ৳{finalComputedTotal.toFixed(2)}
             </p>
           </div>
           <button
             onClick={() => setIsCartOpen(true)}
-            className='flex items-center gap-2 bg-primary text-white px-6 py-2.5 rounded-sm font-bold hover:bg-primary/90 transition'
+            className='flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-sm text-sm font-bold hover:bg-primary/90 transition'
           >
-            <ShoppingCart className='size-5' />
+            <ShoppingCart className='size-4' />
             View Order
           </button>
         </div>
@@ -919,7 +915,7 @@ const CreatePosOrder: React.FC = () => {
       {/* ════════════ RIGHT: Order Panel ════════════ */}
       <div
         className={cn(
-          'w-full lg:w-[400px] xl:w-[420px] 2xl:w-[520px] shrink-0 bg-white flex flex-col border-t lg:border-t-0 lg:border-l border-gray-200 h-full min-h-0 overflow-hidden',
+          'w-full lg:w-[420px] xl:w-[460px] 2xl:w-[600px] shrink-0 bg-white flex flex-col border-t lg:border-t-0 lg:border-l border-gray-200 h-full min-h-0 overflow-hidden',
           isCartOpen || variantPickerProduct
             ? 'absolute inset-0 z-50 lg:static lg:z-auto'
             : 'hidden lg:flex',
@@ -1130,23 +1126,23 @@ const CreatePosOrder: React.FC = () => {
                           )}
                         </div>
 
-                        {/* Name + unit price — flex-1 + min-w-0 ensures truncation, never pushes siblings */}
+                        {/* Name + unit price — wraps naturally, never pushes siblings */}
                         <div className='flex-1 min-w-0 overflow-hidden'>
-                          <p className='text-sm font-semibold text-gray-900 truncate leading-tight'>
+                          <p className='text-[13px] font-semibold text-gray-900 leading-tight'>
                             {item.productName}
                           </p>
                           {item.variationLabel && (
-                            <p className='text-[10px] text-primary/70 font-medium truncate'>
+                            <p className='text-[10px] text-primary/70 font-medium'>
                               {item.variationLabel}
                             </p>
                           )}
-                          <p className='text-[10px] text-gray-400 mt-0.5 truncate'>
+                          <p className='text-[10px] text-gray-500 mt-0.5'>
                             ৳{item.unitPrice.toFixed(2)} / unit
                           </p>
                         </div>
 
-                        {/* Qty stepper — fixed width, never shrinks */}
-                        <div className='flex flex-col items-center shrink-0'>
+                        {/* Qty stepper — pushed to right */}
+                        <div className='flex flex-col items-center shrink-0 ml-auto'>
                           <div className='flex items-center'>
                             <button
                               onClick={() => updateQuantity(key, -1)}
@@ -1178,7 +1174,7 @@ const CreatePosOrder: React.FC = () => {
                                   setItemQuantity(key, 1);
                               }}
                               className={cn(
-                                'w-16 h-7 text-center text-sm font-semibold border-y bg-white outline-none',
+                                'w-14 h-7 text-center text-sm font-semibold border-y bg-white outline-none',
                                 exceedsStock
                                   ? 'text-red-600 border-red-300 bg-red-50'
                                   : 'text-gray-900 border-gray-300',
@@ -1204,22 +1200,24 @@ const CreatePosOrder: React.FC = () => {
                           )}
                         </div>
 
-                        {/* Line total + remove — fixed min-width */}
-                        <div className='flex flex-col items-end justify-center shrink-0 w-16'>
-                          <span className='text-xs font-bold text-primary whitespace-nowrap'>
-                            ৳{(item.unitPrice * item.quantity).toFixed(2)}
-                          </span>
-                          {item.unitPrice < item.basePrice && (
-                            <span className='text-[9px] text-gray-400 line-through leading-none'>
-                              ৳{(item.basePrice * item.quantity).toFixed(2)}
+                        {/* Line total + remove — pushed to far right */}
+                        <div className='flex items-center gap-1.5 shrink-0 ml-auto'>
+                          <div className='flex flex-col items-end justify-center'>
+                            <span className='text-[13px] xl:text-[13px] 2xl:text-[15px] font-bold text-primary whitespace-nowrap'>
+                              ৳{(item.unitPrice * item.quantity).toFixed(2)}
                             </span>
-                          )}
+                            {item.unitPrice < item.basePrice && (
+                              <span className='text-[10px] text-gray-400 line-through leading-none'>
+                                ৳{(item.basePrice * item.quantity).toFixed(2)}
+                              </span>
+                            )}
+                          </div>
                           <button
                             onClick={() => removeFromCart(key)}
-                            className='mt-1 text-red-400 hover:text-red-500 transition-colors'
+                            className='text-red-400 hover:text-red-500 transition-colors'
                             title='Remove'
                           >
-                            <X className='size-3' />
+                            <X className='size-4' />
                           </button>
                         </div>
                       </div>
@@ -1235,7 +1233,7 @@ const CreatePosOrder: React.FC = () => {
                 {/* Customer details */}
                 <div className='grid grid-cols-2 gap-2'>
                   <div>
-                    <label className='block text-[10px] text-gray-500 font-medium mb-0.5'>
+                    <label className='block text-[13px] text-gray-500 font-medium mb-0.5'>
                       Customer Name
                     </label>
                     <input
@@ -1243,11 +1241,11 @@ const CreatePosOrder: React.FC = () => {
                       placeholder='Walk in Customer'
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
-                      className='w-full h-7 rounded-md border border-gray-300 bg-white text-xs text-gray-900 px-2 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary'
+                      className='w-full h-7 rounded-md border border-gray-300 bg-white text-[13px] text-gray-900 px-2 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary'
                     />
                   </div>
                   <div>
-                    <label className='block text-[10px] text-gray-500 font-medium mb-0.5'>
+                    <label className='block text-[13px] text-gray-500 font-medium mb-0.5'>
                       Customer Phone
                     </label>
                     <input
@@ -1255,7 +1253,7 @@ const CreatePosOrder: React.FC = () => {
                       placeholder='Optional'
                       value={customerPhone}
                       onChange={(e) => setCustomerPhone(e.target.value)}
-                      className='w-full h-7 rounded-md border border-gray-300 bg-white text-xs text-gray-900 px-2 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary'
+                      className='w-full h-7 rounded-md border border-gray-300 bg-white text-[13px] text-gray-900 px-2 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary'
                     />
                   </div>
                 </div>
@@ -1263,7 +1261,7 @@ const CreatePosOrder: React.FC = () => {
                 {/* Discount type, value and tax */}
                 <div className='grid grid-cols-2 xl:grid-cols-3 gap-2'>
                   <div>
-                    <label className='block text-[10px] text-gray-500 font-medium mb-0.5'>
+                    <label className='block text-[13px] text-gray-500 font-medium mb-0.5'>
                       Discount Type
                     </label>
                     <select
@@ -1273,7 +1271,7 @@ const CreatePosOrder: React.FC = () => {
                         setDiscountType(v);
                         if (v === 'NONE') setDiscountValue(0);
                       }}
-                      className='w-full h-7 rounded-md border border-gray-300 bg-white text-xs text-gray-700 px-2 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary'
+                      className='w-full h-7 rounded-md border border-gray-300 bg-white text-[13px] text-gray-700 px-2 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary'
                     >
                       <option value='NONE'>No Discount</option>
                       <option value='PERCENTAGE_DISCOUNT'>% Discount</option>
@@ -1281,7 +1279,7 @@ const CreatePosOrder: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className='block text-[10px] text-gray-500 font-medium mb-0.5'>
+                    <label className='block text-[13px] text-gray-500 font-medium mb-0.5'>
                       Disc. Value
                     </label>
                     <input
@@ -1291,11 +1289,11 @@ const CreatePosOrder: React.FC = () => {
                       value={discountValue || ''}
                       disabled={discountType === 'NONE'}
                       onChange={(e) => setDiscountValue(Number(e.target.value))}
-                      className='w-full h-7 rounded-md border border-gray-300 bg-white text-xs text-gray-900 px-2 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary disabled:bg-gray-100 disabled:text-gray-400'
+                      className='w-full h-7 rounded-md border border-gray-300 bg-white text-[13px] text-gray-900 px-2 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary disabled:bg-gray-100 disabled:text-gray-400'
                     />
                   </div>
                   <div className='col-span-2 xl:col-span-1'>
-                    <label className='block text-[10px] text-gray-500 font-medium mb-0.5'>
+                    <label className='block text-[13px] text-gray-500 font-medium mb-0.5'>
                       Tax (%)
                     </label>
                     <input
@@ -1307,42 +1305,42 @@ const CreatePosOrder: React.FC = () => {
                       onChange={(e) =>
                         setTaxPercent(Math.max(0, Number(e.target.value)))
                       }
-                      className='w-full h-7 rounded-md border border-gray-300 bg-white text-xs text-gray-900 px-2 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary'
+                      className='w-full h-7 rounded-md border border-gray-300 bg-white text-[13px] text-gray-900 px-2 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary'
                     />
                   </div>
                 </div>
 
                 {/* Breakdown rows */}
                 <div className='space-y-0.5'>
-                  <div className='flex justify-between text-xs text-gray-500'>
+                  <div className='flex justify-between text-[13px] xl:text-[13px] 2xl:text-base text-gray-700'>
                     <span>Subtotal ({cartTotalQty} items)</span>
-                    <span>৳{cartTotal.toFixed(2)}</span>
+                    <span className='font-bold'>৳{cartTotal.toFixed(2)}</span>
                   </div>
                   {discountType !== 'NONE' && discountValue > 0 && (
-                    <div className='flex justify-between text-xs text-gray-500'>
+                    <div className='flex justify-between text-[13px] xl:text-[13px] 2xl:text-base text-gray-700'>
                       <span>
                         Discount
                         {discountType === 'PERCENTAGE_DISCOUNT'
                           ? ` (${discountValue}%)`
                           : ' (flat)'}
                       </span>
-                      <span className='text-rose-500'>
+                      <span className='text-rose-500 font-bold'>
                         −৳{(cartTotal - subtotalAfterDiscount).toFixed(2)}
                       </span>
                     </div>
                   )}
                   {taxPercent > 0 && (
-                    <div className='flex justify-between text-xs text-gray-500'>
+                    <div className='flex justify-between text-[13px] xl:text-[13px] 2xl:text-base text-gray-700'>
                       <span>Tax ({taxPercent}%)</span>
-                      <span>৳{taxAmount.toFixed(2)}</span>
+                      <span className='font-bold'>৳{taxAmount.toFixed(2)}</span>
                     </div>
                   )}
                 </div>
 
                 {/* Total */}
                 <div className='flex justify-between items-center border-t border-gray-200 pt-1.5'>
-                  <span className='text-sm font-bold text-gray-800'>Total</span>
-                  <span className='text-lg font-bold text-primary'>
+                  <span className='text-lg font-bold text-gray-800'>Total</span>
+                  <span className='text-xl xl:text-xl 2xl:text-2xl font-bold text-primary'>
                     ৳{finalComputedTotal.toFixed(2)}
                   </span>
                 </div>
