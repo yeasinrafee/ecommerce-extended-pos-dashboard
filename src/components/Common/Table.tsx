@@ -1,5 +1,5 @@
-"use client";
-import React, { useEffect, useMemo, useState } from "react";
+'use client';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Table as UITable,
   TableBody,
@@ -7,10 +7,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { PaginationControl } from "@/components/Common/Pagination";
+} from '@/components/ui/table';
+import { PaginationControl } from '@/components/Common/Pagination';
 
-type Align = "left" | "center" | "right";
+type Align = 'left' | 'center' | 'right';
 
 export type Column<T = Record<string, unknown>> = {
   header: React.ReactNode;
@@ -45,7 +45,7 @@ type Props<T = Record<string, unknown>> = {
 function getValue(obj: any, path?: string) {
   if (!path) return undefined;
   return path
-    .split(".")
+    .split('.')
     .reduce(
       (acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined),
       obj,
@@ -59,7 +59,7 @@ export default function Table<T = Record<string, unknown>>({
   searchKeys,
   toolbar,
   renderRowActions,
-  rowKey = "id",
+  rowKey = 'id',
   showIndex = true,
   emptyState,
   className,
@@ -90,7 +90,7 @@ export default function Table<T = Record<string, unknown>>({
   }, [data, searchTerm, searchKeys, onSearch, serverSide]);
 
   const totalPages =
-    serverSide && typeof totalItems === "number"
+    serverSide && typeof totalItems === 'number'
       ? Math.max(1, Math.ceil(totalItems / pageSize))
       : Math.max(1, Math.ceil(filtered.length / pageSize));
 
@@ -115,29 +115,29 @@ export default function Table<T = Record<string, unknown>>({
   };
 
   return (
-    <div className={`bg-slate-50 p-3 ${className || ""}`}>
-      <div className="flex flex-col md:flex-row justify-between gap-2 mb-2">
-        <div className="w-full max-w-sm">{toolbar}</div>
+    <div className={`bg-slate-50 p-3 ${className || ''}`}>
+      <div className='flex flex-col md:flex-row justify-between gap-2 mb-2'>
+        <div className='w-full max-w-sm'>{toolbar}</div>
       </div>
 
-      <div className="rounded-sm border">
-        <UITable>
+      <div className='rounded-sm border'>
+        <UITable className='w-full table-fixed'>
           <TableHeader>
-            <TableRow className="bg-gray-50">
+            <TableRow className='bg-gray-50'>
               {showIndex && (
-                <TableHead className="w-10 text-center">SL</TableHead>
+                <TableHead className='w-10 text-center'>SL</TableHead>
               )}
               {columns.map((col, i) => (
                 <TableHead
                   key={i}
                   className={col.className}
-                  style={{ textAlign: col.align || "left", width: col.width }}
+                  style={{ textAlign: col.align || 'left', width: col.width }}
                 >
                   {col.header}
                 </TableHead>
               ))}
               {renderRowActions && (
-                <TableHead className="text-center">Actions</TableHead>
+                <TableHead className='text-center'>Actions</TableHead>
               )}
             </TableRow>
           </TableHeader>
@@ -146,7 +146,7 @@ export default function Table<T = Record<string, unknown>>({
             {paginated.map((row, rowIndex) => (
               <TableRow key={String((row as any)[rowKey]) || rowIndex}>
                 {showIndex && (
-                  <TableCell className="text-center">
+                  <TableCell className='text-center'>
                     {startIndex + rowIndex + 1}
                   </TableCell>
                 )}
@@ -154,15 +154,15 @@ export default function Table<T = Record<string, unknown>>({
                   <TableCell
                     key={ci}
                     className={col.className}
-                    style={{ textAlign: col.align || "left" }}
+                    style={{ textAlign: col.align || 'left' }}
                   >
                     {col.cell
                       ? col.cell(row)
-                      : String(getValue(row as any, col.accessor || "") ?? "")}
+                      : String(getValue(row as any, col.accessor || '') ?? '')}
                   </TableCell>
                 ))}
                 {renderRowActions && (
-                  <TableCell className="text-center">
+                  <TableCell className='text-center'>
                     {renderRowActions(row)}
                   </TableCell>
                 )}
@@ -177,9 +177,9 @@ export default function Table<T = Record<string, unknown>>({
                     (showIndex ? 1 : 0) +
                     (renderRowActions ? 1 : 0)
                   }
-                  className="text-center"
+                  className='text-center'
                 >
-                  {emptyState || "No records found."}
+                  {emptyState || 'No records found.'}
                 </TableCell>
               </TableRow>
             )}
@@ -187,7 +187,7 @@ export default function Table<T = Record<string, unknown>>({
         </UITable>
       </div>
 
-      <div className="pl-2 pt-4">
+      <div className='pl-2 pt-4'>
         <PaginationControl
           currentPage={effectivePage}
           totalPages={totalPages}

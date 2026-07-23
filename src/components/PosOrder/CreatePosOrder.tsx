@@ -37,6 +37,10 @@ import {
   type PosBillDetail,
 } from '@/hooks/pos.api';
 import { useAllStores } from '@/hooks/store.api';
+import {
+  useSearchPosCustomers,
+  type PosCustomer,
+} from '@/hooks/pos-customer.api';
 import { PaymentModal } from './PaymentModal';
 import { useSidebarContext } from '@/components/Dashboard/Shared/Sidebar';
 
@@ -164,8 +168,14 @@ const CreatePosOrder: React.FC = () => {
   );
 
   /* ── Order Display State ── */
+  const [posCustomerId, setPosCustomerId] = React.useState<string | null>(null);
   const [customerName, setCustomerName] = React.useState('');
   const [customerPhone, setCustomerPhone] = React.useState('');
+  const [customerSearchPhone, setCustomerSearchPhone] = React.useState('');
+  const [customerSearchOpen, setCustomerSearchOpen] = React.useState(false);
+  const [selectedPosCustomer, setSelectedPosCustomer] =
+    React.useState<PosCustomer | null>(null);
+  const searchDropdownRef = React.useRef<HTMLDivElement>(null);
   const [discountType, setDiscountType] = React.useState<
     'NONE' | 'PERCENTAGE_DISCOUNT' | 'FLAT_DISCOUNT'
   >('NONE');
@@ -185,6 +195,24 @@ const CreatePosOrder: React.FC = () => {
     searchTerm,
     selectedStoreId || undefined,
   );
+
+  /* ── pos customer search ── */
+  const { data: searchedCustomers = [], isFetching: customersSearching } =
+    useSearchPosCustomers(customerSearchPhone);
+
+  // Close search dropdown on outside click
+  React.useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (
+        searchDropdownRef.current &&
+        !searchDropdownRef.current.contains(e.target as Node)
+      ) {
+        setCustomerSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   /* ── category tabs ── */
   const allCategories = React.useMemo(() => {
@@ -297,6 +325,11 @@ const CreatePosOrder: React.FC = () => {
     });
     setCart(newCart);
     if (existingBill.storeId) setSelectedStoreId(existingBill.storeId);
+    if (existingBill.posCustomerId)
+      setPosCustomerId(existingBill.posCustomerId);
+    if (existingBill.posCustomer) {
+      setSelectedPosCustomer(existingBill.posCustomer as PosCustomer);
+    }
     if (existingBill.customerName) setCustomerName(existingBill.customerName);
     if (existingBill.customerPhone)
       setCustomerPhone(existingBill.customerPhone);
@@ -496,6 +529,7 @@ const CreatePosOrder: React.FC = () => {
 
     return {
       ...(selectedStoreId ? { storeId: selectedStoreId } : {}),
+      ...(posCustomerId ? { posCustomerId } : {}),
       customerName: customerName.trim() || undefined,
       customerPhone: customerPhone.trim() || undefined,
       discountType: discountType !== 'NONE' ? discountType : undefined,
@@ -610,6 +644,224 @@ const CreatePosOrder: React.FC = () => {
       <div className='flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden'>
         {/* Header */}
         <div className='px-4 py-3 bg-white border-b border-gray-200 shrink-0'>
+          {/* ── Customer Selection Section ── */}
+          <div className='mb-3'>
+            {selectedPosCustomer ? (
+              /* ── Selected Customer Card ── */
+              <div className='relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/5 via-primary/[0.03] to-transparent border border-primary/20 shadow-sm'>
+                <div className='absolute top-0 right-0 w-24 h-24 bg-primary/[0.04] rounded-bl-full -mr-4 -mt-4' />
+                <div className='relative px-4 py-3'>
+                  <div className='flex items-center justify-between'>
+                    <div className='flex items-center gap-3'>
+                      <div className='size-11 rounded-xl bg-primary text-white flex items-center justify-center shrink-0 shadow-sm shadow-primary/20'>
+                        <span className='text-base font-bold'>
+                          {(selectedPosCustomer.name || 'C')
+                            .charAt(0)
+                            .toUpperCase()}
+                        </span>
+                      </div>
+                      <div>
+                        <p className='text-sm font-bold text-gray-900 leading-tight'>
+                          {selectedPosCustomer.name}
+                        </p>
+                        <p className='text-xs text-gray-500 mt-0.5'>
+                          {selectedPosCustomer.phone}
+                        </p>
+                      </div>
+                      <div className='hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-gray-150 shadow-sm'>
+                        <span className='text-xs font-bold text-primary'>
+                          {selectedPosCustomer._count?.posOrders ?? 0}
+                        </span>
+                        <span className='text-[10px] text-gray-400'>
+                          orders
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSelectedPosCustomer(null);
+                        setPosCustomerId(null);
+                        setCustomerName('');
+                        setCustomerPhone('');
+                        setCustomerSearchPhone('');
+                      }}
+                      className='flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-gray-500 bg-white hover:bg-gray-100 border border-gray-200 rounded-lg transition-all hover:text-red-600 hover:border-red-200'
+                    >
+                      <X className='size-3' />
+                      Change Customer
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* ── Customer Search ── */
+              <div ref={searchDropdownRef} className='relative'>
+                {/* Label + search box */}
+                <label className='block text-[13px] font-semibold text-gray-700 mb-1.5'>
+                  Customer <span className='text-red-400'>*</span>
+                </label>
+                <div
+                  className={cn(
+                    'flex items-stretch rounded-lg border bg-white overflow-hidden transition-all duration-200',
+                    customerSearchOpen && customerSearchPhone.length >= 3
+                      ? 'border-primary ring-2 ring-primary/10 shadow-sm'
+                      : 'border-gray-300 hover:border-gray-400',
+                  )}
+                >
+                  <div className='flex items-center justify-center pl-3 text-gray-400'>
+                    <Search className='size-4' />
+                  </div>
+                  <input
+                    type='text'
+                    inputMode='numeric'
+                    placeholder='Search by phone number'
+                    value={customerSearchPhone}
+                    onChange={(e) => {
+                      setCustomerSearchPhone(e.target.value);
+                      setCustomerPhone(e.target.value);
+                      if (e.target.value.length >= 3)
+                        setCustomerSearchOpen(true);
+                      else setCustomerSearchOpen(false);
+                    }}
+                    onFocus={() => {
+                      if (customerSearchPhone.length >= 3)
+                        setCustomerSearchOpen(true);
+                    }}
+                    className='flex-1 h-10 pl-2 bg-transparent text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none'
+                  />
+                  {customerSearchPhone && (
+                    <button
+                      type='button'
+                      onClick={() => {
+                        setCustomerSearchPhone('');
+                        setCustomerPhone('');
+                        setCustomerSearchOpen(false);
+                      }}
+                      className='px-3 text-gray-400 hover:text-gray-600 transition-colors'
+                    >
+                      <X className='size-3.5' />
+                    </button>
+                  )}
+                </div>
+
+                {/* ── Dropdown: results OR add-new form ── */}
+                {customerSearchOpen && customerSearchPhone.length >= 3 && (
+                  <div className='absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl z-50 max-h-72 overflow-y-auto overflow-x-hidden'>
+                    {customersSearching ? (
+                      <div className='flex items-center justify-center gap-2 px-4 py-5'>
+                        <span className='size-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin' />
+                        <span className='text-sm text-gray-400'>
+                          Searching…
+                        </span>
+                      </div>
+                    ) : searchedCustomers.length > 0 ? (
+                      /* ── Existing customers found ── */
+                      <div className='py-1'>
+                        {searchedCustomers.map((c) => (
+                          <button
+                            key={c.id}
+                            type='button'
+                            onClick={() => {
+                              setSelectedPosCustomer(c);
+                              setPosCustomerId(c.id);
+                              setCustomerName(c.name);
+                              setCustomerPhone(c.phone);
+                              setCustomerSearchPhone('');
+                              setCustomerSearchOpen(false);
+                            }}
+                            className='w-full flex items-center gap-3 px-4 py-3 hover:bg-primary/[0.04] transition-colors text-left group'
+                          >
+                            <div className='size-9 rounded-lg bg-gradient-to-br from-primary/15 to-primary/5 flex items-center justify-center shrink-0 group-hover:from-primary/25 transition-all'>
+                              <span className='text-sm font-bold text-primary'>
+                                {c.name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                            <div className='min-w-0 flex-1'>
+                              <p className='text-[13px] font-semibold text-gray-900 truncate'>
+                                {c.name}
+                              </p>
+                              <p className='text-[11px] text-gray-500 mt-0.5'>
+                                {c.phone}
+                              </p>
+                            </div>
+                            <div className='shrink-0'>
+                              <span className='text-[10px] font-semibold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full group-hover:bg-primary/10 group-hover:text-primary transition-colors'>
+                                {c._count?.posOrders ?? 0} orders
+                              </span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      /* ── No results → add new customer form ── */
+                      <div className='px-4 py-3 space-y-3'>
+                        <p className='text-[13px] text-gray-400 italic'>
+                          No Customer — add new below
+                        </p>
+
+                        {/* Phone — auto-filled from search */}
+                        <div>
+                          <label className='block text-[11px] font-semibold text-gray-500 mb-1'>
+                            Phone / Mobile
+                          </label>
+                          <input
+                            type='text'
+                            readOnly
+                            value={customerPhone}
+                            className='w-full h-9 rounded-md border border-gray-200 bg-gray-50 text-sm text-gray-600 px-3 cursor-default'
+                          />
+                        </div>
+
+                        {/* Name input inside dropdown */}
+                        <div>
+                          <label className='block text-[11px] font-semibold text-gray-500 mb-1'>
+                            Name <span className='text-red-400'>*</span>
+                          </label>
+                          <input
+                            type='text'
+                            placeholder='Customer name'
+                            value={customerName}
+                            onChange={(e) => setCustomerName(e.target.value)}
+                            className='w-full h-9 rounded-md border border-gray-200 bg-white text-sm text-gray-900 px-3 focus:outline-none focus:ring-2 focus:ring-primary/10 focus:border-primary placeholder:text-gray-350 transition-all'
+                          />
+                        </div>
+
+                        {/* Add button inside dropdown */}
+                        <button
+                          type='button'
+                          disabled={
+                            !customerPhone.trim() || !customerName.trim()
+                          }
+                          onClick={() => {
+                            if (!customerPhone.trim() || !customerName.trim())
+                              return;
+                            setPosCustomerId(null);
+                            setSelectedPosCustomer({
+                              id: '',
+                              name: customerName.trim(),
+                              phone: customerPhone.trim(),
+                              isDeleted: false,
+                              posOrderIds: [],
+                              createdAt: '',
+                              updatedAt: '',
+                              _count: { posOrders: 0 },
+                            });
+                            setCustomerSearchPhone('');
+                            setCustomerSearchOpen(false);
+                          }}
+                          className='w-full flex items-center justify-center gap-1.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-bold rounded-lg transition-colors'
+                        >
+                          <Plus className='size-4' />
+                          Add Customer
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className='flex items-center justify-between gap-3 mb-3'>
             <h1 className='text-lg sm:text-xl font-bold text-gray-900 shrink-0'>
               {isEditMode ? 'Edit Order' : 'Point of Sale (POS)'}
@@ -1230,33 +1482,26 @@ const CreatePosOrder: React.FC = () => {
             {/* ── Summary + Actions ── */}
             {cartItems.length > 0 && (
               <div className='bg-gray-50 border-t border-gray-200 px-4 py-2 shrink-0 space-y-1.5'>
-                {/* Customer details */}
-                <div className='grid grid-cols-2 gap-2'>
-                  <div>
-                    <label className='block text-[13px] text-gray-500 font-medium mb-0.5'>
-                      Customer Name
-                    </label>
-                    <input
-                      type='text'
-                      placeholder='Walk in Customer'
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      className='w-full h-7 rounded-md border border-gray-300 bg-white text-[13px] text-gray-900 px-2 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary'
-                    />
+                {/* Customer info summary */}
+                {(customerName || customerPhone || selectedPosCustomer) && (
+                  <div className='flex items-center gap-2 px-2 py-1.5 bg-white rounded-md border border-gray-200'>
+                    <div className='size-6 rounded-full bg-primary/10 flex items-center justify-center shrink-0'>
+                      <span className='text-[10px] font-bold text-primary'>
+                        {(customerName || 'C').charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className='min-w-0'>
+                      <p className='text-xs font-semibold text-gray-700 truncate'>
+                        {customerName || 'Walk-in Customer'}
+                      </p>
+                      {customerPhone && (
+                        <p className='text-[10px] text-gray-400 truncate'>
+                          {customerPhone}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <label className='block text-[13px] text-gray-500 font-medium mb-0.5'>
-                      Customer Phone
-                    </label>
-                    <input
-                      type='text'
-                      placeholder='Optional'
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
-                      className='w-full h-7 rounded-md border border-gray-300 bg-white text-[13px] text-gray-900 px-2 focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary'
-                    />
-                  </div>
-                </div>
+                )}
 
                 {/* Discount type, value and tax */}
                 <div className='grid grid-cols-2 xl:grid-cols-3 gap-2'>

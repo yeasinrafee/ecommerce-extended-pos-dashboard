@@ -11,7 +11,7 @@ import {
   LuUserCog,
   LuScanLine,
   LuHandshake,
-} from "react-icons/lu";
+} from 'react-icons/lu';
 
 export interface RouteItem {
   icon: React.ElementType;
@@ -28,38 +28,38 @@ export interface RouteItem {
 export const routes: RouteItem[] = [
   {
     icon: LuLayoutDashboard,
-    label: "Dashboard",
-    href: "/dashboard",
+    label: 'Dashboard',
+    href: '/dashboard',
   },
   // --- Products ---
   {
     icon: LuPackage,
-    label: "Products",
-    href: "/dashboard/products",
+    label: 'Products',
+    href: '/dashboard/products',
     subItems: [
       {
-        label: "Create Product",
-        href: "/dashboard/product/create",
+        label: 'Create Product',
+        href: '/dashboard/product/create',
       },
       {
-        label: "Manage Products",
-        href: "/dashboard/product/manage",
+        label: 'Manage Products',
+        href: '/dashboard/product/manage',
       },
       {
-        label: "Product Categories",
-        href: "/dashboard/categories/product-categories/manage",
+        label: 'Product Categories',
+        href: '/dashboard/categories/product-categories/manage',
       },
       {
-        label: "Product Tags",
-        href: "/dashboard/tags/product-tags/manage",
+        label: 'Product Tags',
+        href: '/dashboard/tags/product-tags/manage',
       },
       {
-        label: "Manage Attributes",
-        href: "/dashboard/attributes/manage",
+        label: 'Manage Attributes',
+        href: '/dashboard/attributes/manage',
       },
       {
-        label: "Manage Brands",
-        href: "/dashboard/brands/manage",
+        label: 'Manage Brands',
+        href: '/dashboard/brands/manage',
       },
     ],
   },
@@ -71,68 +71,68 @@ export const routes: RouteItem[] = [
   // },
   {
     icon: LuScanLine,
-    label: "POS Order",
-    href: "/dashboard/pos-order",
+    label: 'POS Order',
+    href: '/dashboard/pos-order',
     subItems: [
       {
-        label: "Create POS Order",
-        href: "/dashboard/pos-order/create",
+        label: 'Create POS Order',
+        href: '/dashboard/pos-order/create',
       },
       {
-        label: "Manage POS Order",
-        href: "/dashboard/pos-order/manage",
+        label: 'Manage POS Order',
+        href: '/dashboard/pos-order/manage',
       },
       {
-        label: "POS Report",
-        href: "/dashboard/pos-order/report",
+        label: 'POS Report',
+        href: '/dashboard/pos-order/report',
       },
     ],
   },
   // --- Purchases & Suppliers ---
   {
     icon: LuHandshake,
-    label: "Purchases & Suppliers",
-    href: "",
+    label: 'Purchases & Suppliers',
+    href: '',
     subItems: [
       {
-        label: "Suppliers",
-        href: "/inventory/suppliers",
+        label: 'Suppliers',
+        href: '/inventory/suppliers',
       },
       {
-        label: "Purchase Orders",
-        href: "/inventory/purchases",
+        label: 'Purchase Orders',
+        href: '/inventory/purchases',
       },
       {
-        label: "Goods Receive (GRN)",
-        href: "/inventory/grn",
+        label: 'Goods Receive (GRN)',
+        href: '/inventory/grn',
       },
       {
-        label: "Supplier Returns",
-        href: "/inventory/supplier-returns",
+        label: 'Supplier Returns',
+        href: '/inventory/supplier-returns',
       },
       {
-        label: "Customer Returns",
-        href: "/inventory/customer-returns",
+        label: 'Customer Returns',
+        href: '/inventory/customer-returns',
       },
     ],
   },
   // --- Inventory ---
   {
     icon: LuWarehouse,
-    label: "Inventory",
-    href: "",
+    label: 'Inventory',
+    href: '',
     subItems: [
       {
-        label: "Dashboard",
-        href: "/inventory/dashboard",
+        label: 'Dashboard',
+        href: '/inventory/dashboard',
       },
       {
-        label: "Location-wise Stock",
-        href: "/inventory/stocks",
+        label: 'Location-wise Stock',
+        href: '/inventory/stocks',
       },
       {
-        label: "Manage Locations",
-        href: "/inventory/locations",
+        label: 'Manage Locations',
+        href: '/inventory/locations',
       },
       // Stock Ledger route is commented out — movement history & audit log
       // is fully covered under the "Movements" tab in Inventory Reports.
@@ -141,44 +141,48 @@ export const routes: RouteItem[] = [
       //   href: "/inventory/stock-ledger",
       // },
       {
-        label: "Stock Transfers",
-        href: "/inventory/transfers",
+        label: 'Stock Transfers',
+        href: '/inventory/transfers',
       },
       {
-        label: "Damage Inventory",
-        href: "/inventory/damages",
+        label: 'Damage Inventory',
+        href: '/inventory/damages',
       },
       {
-        label: "Stock Adjustment",
-        href: "/inventory/adjustments",
+        label: 'Stock Adjustment',
+        href: '/inventory/adjustments',
       },
       {
-        label: "Low Stock Alert",
-        href: "/inventory/reorder",
+        label: 'Low Stock Alert',
+        href: '/inventory/reorder',
       },
       {
-        label: "Inventory Reports",
-        href: "/inventory/reports",
+        label: 'Inventory Reports',
+        href: '/inventory/reports',
       },
     ],
   },
   {
     icon: LuLandmark,
-    label: "Bank Management",
-    href: "/dashboard/bank",
+    label: 'Bank Management',
+    href: '/dashboard/bank',
   },
   {
     icon: LuUserCog,
-    label: "User Management",
-    href: "",
+    label: 'User Management',
+    href: '',
     subItems: [
       {
-        label: "Manage Admin",
-        href: "/dashboard/admin",
+        label: 'Manage Admin',
+        href: '/dashboard/admin',
       },
+      // {
+      //   label: "Manage Customers",
+      //   href: "/dashboard/customer/manage",
+      // },
       {
-        label: "Manage Customers",
-        href: "/dashboard/customer/manage",
+        label: 'POS Customer',
+        href: '/dashboard/pos-customer/manage',
       },
     ],
   },
