@@ -1,13 +1,14 @@
 'use client';
 
 import type React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, createContext, useContext } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import SidebarItem from './SidebarItem';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -16,6 +17,19 @@ import type { StoredUser } from '@/types/auth';
 import Image from 'next/image';
 import logoPos from '@/assets/images/logo_pos.jpeg';
 import posIcon from '@/assets/images/pos_icon.png';
+
+/* ─── Sidebar Context ─── */
+const SidebarCtx = createContext<{ collapsed: boolean }>({ collapsed: false });
+export const useSidebarContext = () => useContext(SidebarCtx);
+export const SidebarProvider = ({
+  collapsed,
+  children,
+}: {
+  collapsed: boolean;
+  children: React.ReactNode;
+}) => (
+  <SidebarCtx.Provider value={{ collapsed }}>{children}</SidebarCtx.Provider>
+);
 
 interface SidebarProps {
   routes: {
@@ -43,6 +57,7 @@ interface SidebarProps {
   setMobileOpen?: (open: boolean) => void;
   collapsed?: boolean;
   setCollapsed?: (collapsed: boolean) => void;
+  onEffectiveChange?: (collapsed: boolean) => void;
 }
 
 const Sidebar = ({
@@ -54,10 +69,12 @@ const Sidebar = ({
   setMobileOpen,
   collapsed = false,
   setCollapsed,
+  onEffectiveChange,
 }: SidebarProps) => {
   const [internalCollapsed, setInternalCollapsed] = useState(collapsed);
   const [mounted, setMounted] = useState(false);
-  const isMobile = useMediaQuery('(max-width: 1365px)');
+  const [hoverExpanded, setHoverExpanded] = useState(false);
+  const isMobile = useMediaQuery('(max-width: 1279px)');
   const pathname = usePathname();
 
   useEffect(() => {
@@ -123,6 +140,30 @@ const Sidebar = ({
   const isCollapsed = setCollapsed ? collapsed : internalCollapsed;
   const effectiveCollapsed = isMobile ? false : isCollapsed;
 
+  // Hover expand: only when sidebar is in collapsed state, hover temporarily expands it
+  const displayExpanded = hoverExpanded ? true : !effectiveCollapsed;
+  const displayCollapsed = !displayExpanded;
+
+  const handleMouseEnter = () => {
+    if (effectiveCollapsed && !isMobile) {
+      setHoverExpanded(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setHoverExpanded(false);
+  };
+
+  // Report effective display state to parent (for grid/context updates)
+  useEffect(() => {
+    onEffectiveChange?.(displayCollapsed);
+  }, [displayCollapsed, onEffectiveChange]);
+
+  // Reset hover expand on route change so sidebar collapses after navigation
+  useEffect(() => {
+    setHoverExpanded(false);
+  }, [pathname]);
+
   const getInitials = (name?: string) => {
     if (!name) return 'AU';
     const parts = name.split(' ').filter(Boolean);
@@ -136,27 +177,32 @@ const Sidebar = ({
       {/* Mobile overlay backdrop */}
       {isMobile && mobileOpen && (
         <div
-          className='fixed inset-0 z-40 bg-black/40 backdrop-blur-sm 2xl:hidden'
+          className='fixed inset-0 z-40 bg-black/40 backdrop-blur-sm xl:hidden'
           onClick={() => setMobileOpen?.(false)}
         />
       )}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 border-r border-slate-200 bg-white text-slate-900 shadow-sm transition-all duration-300 ease-in-out 2xl:relative 2xl:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 border-r border-slate-200 bg-white text-slate-900 shadow-sm transition-all duration-300 ease-in-out xl:relative xl:translate-x-0',
           isMobile && !mobileOpen ? '-translate-x-full' : 'translate-x-0',
           isMobile ? 'w-80' : '',
-          !isMobile && (isCollapsed ? 'w-16' : 'w-56 2xl:w-68'),
+          !isMobile && (displayCollapsed ? 'w-16' : 'w-56 xl:w-68'),
         )}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
         {/* Sidebar Header */}
         <div
           className={cn(
             'flex h-16 items-center border-b border-slate-200 bg-white',
-            effectiveCollapsed ? 'justify-center px-0' : 'justify-between px-4',
+            displayCollapsed ? 'justify-center px-0' : 'justify-between px-4',
           )}
         >
-          {!effectiveCollapsed && (
-            <div className='flex items-center justify-center w-full gap-2'>
+          {displayExpanded && (
+            <Link
+              href='/dashboard'
+              className='flex items-center justify-center w-full gap-2'
+            >
               {logo ?? (
                 <Image
                   src={logoPos}
@@ -167,31 +213,33 @@ const Sidebar = ({
                   priority
                 />
               )}
-            </div>
+            </Link>
           )}
-          {effectiveCollapsed && (
-            <Image
-              src={posIcon}
-              alt='POS Icon'
-              width={64}
-              height={32}
-              className='object-contain'
-              priority
-            />
+          {displayCollapsed && (
+            <Link href='/dashboard'>
+              <Image
+                src={posIcon}
+                alt='POS Icon'
+                width={64}
+                height={32}
+                className='object-contain'
+                priority
+              />
+            </Link>
           )}
           {isMobile && !effectiveCollapsed && (
             <Button
               variant='ghost'
               size='icon'
               onClick={toggleMobile}
-              className='2xl:hidden'
+              className='xl:hidden'
             >
               <ChevronLeft className='h-5 w-5' />
             </Button>
           )}
         </div>
         <ScrollArea className='h-[calc(100vh-8rem)]'>
-          <div className={cn('py-4', effectiveCollapsed ? 'px-1' : 'px-2.5')}>
+          <div className={cn('py-4', displayCollapsed ? 'px-1' : 'px-2.5')}>
             <div className='space-y-1'>
               {processedRoutes?.map((route, index) => (
                 <SidebarItem
@@ -199,10 +247,13 @@ const Sidebar = ({
                   icon={route.icon}
                   label={route.label}
                   active={route.active}
-                  collapsed={effectiveCollapsed}
+                  collapsed={displayCollapsed}
                   href={route.href}
                   subItems={route.subItems}
-                  onClick={isMobile ? () => setMobileOpen?.(false) : undefined}
+                  onClick={() => {
+                    setHoverExpanded(false);
+                    if (isMobile) setMobileOpen?.(false);
+                  }}
                 />
               ))}
             </div>
@@ -214,10 +265,10 @@ const Sidebar = ({
           <div
             className={cn(
               'absolute bottom-0 w-full border-t border-slate-200 bg-white',
-              effectiveCollapsed ? 'flex justify-center p-2' : 'p-3.5',
+              displayCollapsed ? 'flex justify-center p-2' : 'p-3.5',
             )}
           >
-            {effectiveCollapsed ? (
+            {displayCollapsed ? (
               <Avatar>
                 <AvatarImage
                   src={mounted ? (currentUser.image ?? undefined) : undefined}

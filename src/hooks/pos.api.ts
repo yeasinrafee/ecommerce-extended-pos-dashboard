@@ -122,6 +122,12 @@ export interface PosBillDetail {
   updatedAt: string;
   customerName?: string | null;
   customerPhone?: string | null;
+  posCustomerId?: string | null;
+  posCustomer?: {
+    id: string;
+    name: string;
+    phone: string;
+  } | null;
   paymentStatus?: 'PAID' | 'PENDING' | 'DUE';
   orderDiscountType?: 'PERCENTAGE_DISCOUNT' | 'FLAT_DISCOUNT' | 'NONE' | null;
   orderDiscountValue?: number | null;
@@ -144,6 +150,7 @@ export interface CreateBillProductLine {
 
 export interface CreatePosBillPayload {
   storeId?: string;
+  posCustomerId?: string;
   customerName?: string;
   customerPhone?: string;
   discountType?: 'PERCENTAGE_DISCOUNT' | 'FLAT_DISCOUNT' | 'NONE';
@@ -446,6 +453,11 @@ export type PosReport = {
       paymentStatus: string;
       storeName: string;
       createdAt: string;
+      payments: {
+        method: string;
+        amount: number;
+        bankName: string | null;
+      }[];
       items: {
         productName: string;
         barcode: string;
